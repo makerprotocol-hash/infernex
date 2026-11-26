@@ -136,6 +136,7 @@ fn help() {
     println!("  version                      Show version");
     println!("  doctor                       Check basic environment");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
+    println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check|info <name>]  List/check/inspect integrations");
@@ -167,8 +168,56 @@ fn net_command(args: &[String]) -> ExitCode {
                 Err(e) => { eprintln!("DNS resolution failed for {hostname}: {e}"); ExitCode::from(1) }
             }
         }
-        _ => { eprintln!("Usage: nex net resolve <hostname>"); ExitCode::from(2) }
+        [action, cidr] if action == "cidr" => cidr_command(cidr),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix>"); ExitCode::from(2) }
     }
+}
+
+fn cidr_command(value: &str) -> ExitCode {
+    let Some((address, prefix_text)) = value.split_once('/') else {
+        eprintln!("CIDR must use address/prefix notation, such as 192.0.2.0/24.");
+        return ExitCode::from(2);
+    };
+    if prefix_text.contains('/') {
+        eprintln!("CIDR contains more than one prefix separator.");
+        return ExitCode::from(2);
+    }
+    let Ok(prefix) = prefix_text.parse::<u8>() else {
+        eprintln!("CIDR prefix must be a valid number.");
+        return ExitCode::from(2);
+    };
+    if let Ok(ip) = address.parse::<std::net::Ipv4Addr>() {
+        if prefix > 32 { eprintln!("IPv4 prefix must be between 0 and 32."); return ExitCode::from(2); }
+        let raw = u32::from(ip);
+        let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
+        let network = raw & mask;
+        let broadcast = network | !mask;
+        let total = 1u128 << (32 - prefix);
+        println!("IPv4 network: {}/{}", std::net::Ipv4Addr::from(network), prefix);
+        println!("Netmask: {}", std::net::Ipv4Addr::from(mask));
+        println!("First address: {}", std::net::Ipv4Addr::from(network));
+        println!("Last address: {}", std::net::Ipv4Addr::from(broadcast));
+        println!("Total addresses: {total}");
+        println!("Usable host addresses (traditional subnet rule): {}", if prefix >= 31 { total } else { total.saturating_sub(2) });
+        return ExitCode::SUCCESS;
+    }
+    if let Ok(ip) = address.parse::<std::net::Ipv6Addr>() {
+        if prefix > 128 { eprintln!("IPv6 prefix must be between 0 and 128."); return ExitCode::from(2); }
+        let raw = u128::from(ip);
+        let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
+        let network = raw & mask;
+        let host_bits = 128 - prefix;
+        let total = if host_bits == 128 { "2^128".to_string() } else { (1u128 << host_bits).to_string() };
+        println!("IPv6 network: {}/{}", std::net::Ipv6Addr::from(network), prefix);
+        println!("Network mask: {}", std::net::Ipv6Addr::from(mask));
+        println!("First address: {}", std::net::Ipv6Addr::from(network));
+        println!("Last address: {}", std::net::Ipv6Addr::from(network | !mask));
+        println!("Total addresses: {total}");
+        println!("Note: IPv6 subnet size is the full address count; no traditional broadcast/host subtraction is applied.");
+        return ExitCode::SUCCESS;
+    }
+    eprintln!("Invalid IP address in CIDR: '{address}'.");
+    ExitCode::from(2)
 }
 
 fn hash_command(args: &[String]) -> ExitCode {
@@ -488,6 +537,20 @@ mod tests {
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Yum), ("sudo", &["yum", "install", "-y", "nmap"][..]));
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Pacman), ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"][..]));
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Zypper), ("sudo", &["zypper", "--non-interactive", "install", "nmap"][..]));
+    }
+    #[test] fn cidr_v4_calculates_network_boundaries() {
+        let ip = std::net::Ipv4Addr::new(192, 0, 2, 17);
+        let prefix = 24u8;
+        let raw = u32::from(ip);
+        let mask = u32::MAX << (32 - prefix);
+        assert_eq!(std::net::Ipv4Addr::from(raw & mask).to_string(), "192.0.2.0");
+        assert_eq!(std::net::Ipv4Addr::from((raw & mask) | !mask).to_string(), "192.0.2.255");
+    }
+    #[test] fn cidr_v6_calculates_network_boundaries() {
+        let ip: std::net::Ipv6Addr = "2001:db8:abcd::1".parse().unwrap();
+        let prefix = 32u8;
+        let mask = u128::MAX << (128 - prefix);
+        assert_eq!(std::net::Ipv6Addr::from(u128::from(ip) & mask).to_string(), "2001:db8::");
     }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
     #[test] fn config_update_preserves_other_settings() {
