@@ -63,7 +63,7 @@ fn repl() -> ExitCode {
     println!("Type 'help' for commands, 'exit' to leave.");
     let stdin = io::stdin();
     loop {
-        print!("{}nex> \x1b[0m", prompt_color());
+        print!("{}nex>{}", prompt_color(), prompt_reset());
         if io::stdout().flush().is_err() { return ExitCode::FAILURE; }
         let mut line = String::new();
         match stdin.read_line(&mut line) {
@@ -121,8 +121,13 @@ fn tokenize(input: &str) -> Result<Vec<String>, &'static str> {
     Ok(out)
 }
 fn banner() {
-    println!("\x1b[38;5;208m  INFERNEX / NEX\x1b[0m");
-    println!("\x1b[38;5;202m  Unified cybersecurity command environment\x1b[0m");
+    if colors_enabled() {
+        println!("\x1b[38;5;208m  INFERNEX / NEX\x1b[0m");
+        println!("\x1b[38;5;202m  Unified cybersecurity command environment\x1b[0m");
+    } else {
+        println!("  INFERNEX / NEX");
+        println!("  Unified cybersecurity command environment");
+    }
     println!("Version {VERSION}\n");
 }
 fn help() {
@@ -281,7 +286,7 @@ fn alias_command(args: &[String]) -> ExitCode {
         }
         [action, name, command @ ..] if action == "add" && !command.is_empty() => {
             if !valid_alias_name(name) || is_builtin_command(name) { eprintln!("Invalid or reserved alias name."); return ExitCode::from(2); }
-            let value = command.join(" ");
+            let value = command.iter().map(|part| quote_token(part)).collect::<Vec<_>>().join(" ");
             if tokenize(&value).map(|v| v.is_empty()).unwrap_or(true) { eprintln!("Alias command is invalid."); return ExitCode::from(2); }
             let Some(path) = config_path() else { eprintln!("Cannot determine config directory."); return ExitCode::FAILURE; };
             if let Some(parent) = path.parent() { if let Err(e) = fs::create_dir_all(parent) { eprintln!("Cannot create config directory: {e}"); return ExitCode::FAILURE; } }
@@ -324,7 +329,12 @@ fn set_config_value(path: &std::path::Path, key: &str, value: &str) -> io::Resul
     if !replaced { lines.push(format!("{key}={value}")); }
     fs::write(path, format!("{}\n", lines.join("\n")))
 }
+fn colors_enabled() -> bool {
+    env::var_os("NO_COLOR").map(|value| !value.is_empty()).unwrap_or(true)
+}
+
 fn prompt_color() -> &'static str {
+    if !colors_enabled() { return ""; }
     let theme = config_path()
         .and_then(|p| fs::read_to_string(p).ok())
         .and_then(|contents| contents.lines().find_map(|line| line.strip_prefix("theme=")).map(str::trim).map(str::to_owned));
@@ -333,6 +343,16 @@ fn prompt_color() -> &'static str {
         Some("mono") => "\x1b[38;5;250m",
         _ => "\x1b[38;5;208m",
     }
+}
+
+fn prompt_reset() -> &'static str {
+    if colors_enabled() { "\x1b[0m" } else { "" }
+}
+
+// Encode one argument so the REPL tokenizer reconstructs it exactly.
+fn quote_token(value: &str) -> String {
+    let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
+    format!("\"{escaped}\"")
 }
 
 fn config_path() -> Option<PathBuf> {
@@ -355,6 +375,11 @@ mod tests {
     #[test] fn tokenizes_plain_args() { assert_eq!(tokenize("nmap -sV host").unwrap(), vec!["nmap", "-sV", "host"]); }
     #[test] fn tokenizes_quoted_args() { assert_eq!(tokenize("web --url \"https://example.test/a b\"").unwrap(), vec!["web", "--url", "https://example.test/a b"]); }
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
+    #[test] fn alias_argument_encoding_round_trips_spaces_and_windows_paths() {
+        let original = vec!["nmap".to_string(), "-oN".to_string(), "report file.txt".to_string(), r#"C:\Users\Public\scan output.txt"#.to_string(), r#"say \"hello\""#.to_string()];
+        let encoded = original.iter().map(|part| quote_token(part)).collect::<Vec<_>>().join(" ");
+        assert_eq!(tokenize(&encoded).unwrap(), original);
+    }
     #[test] fn preserves_windows_path_backslashes() { assert_eq!(tokenize(r#"hash sha256 C:\Users\Public\file.bin"#).unwrap(), vec!["hash", "sha256", r#"C:\Users\Public\file.bin"#]); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
