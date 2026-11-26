@@ -9,7 +9,7 @@ The examples below assume the INFERNEX executable is installed as `nex`.
 | `nex` | Open the interactive prompt |
 | `nex help` | Show available commands |
 | `nex version` | Show the core version |
-| `nex doctor` | Display basic environment diagnostics |
+| `nex doctor` | Display platform, config, color, and optional-engine diagnostics |
 | `nex engines` | List optional integrations |
 | `nex engines check` | Check whether integration executables are on PATH |
 | `nex engines info <engine>` | Show an integration's details and availability |
@@ -117,3 +117,7 @@ nex net inspect fd00::1
 ```
 
 The output reports the address family and standard loopback, private, link-local, multicast, unspecified, and (for IPv4) broadcast classifications. These labels describe address properties only; they do not prove that a host is reachable, safe, or authorized.
+
+## Diagnostics
+
+Run `nex doctor` to display the core version, operating system and architecture, config-file location, color-output state, and the number of optional engines detected on `PATH`. Missing engines are listed with their upstream project links. Diagnostics are read-only and do not install software or change system settings.
