@@ -47,6 +47,7 @@ fn dispatch_with_aliases(args: &[String], depth: usize) -> ExitCode {
         "help" | "--help" | "-h" => { banner(); help(); ExitCode::SUCCESS }
         "version" | "--version" | "-V" => { println!("INFERNEX (nex) {VERSION}"); ExitCode::SUCCESS }
         "doctor" => doctor(),
+        "config" => config_command(&args[1..]),
         "hash" => hash_command(&args[1..]),
         "net" => net_command(&args[1..]),
         "theme" => theme_command(&args[1..]),
@@ -135,6 +136,7 @@ fn help() {
     println!("  help                         Show help");
     println!("  version                      Show version");
     println!("  doctor                       Check basic environment");
+    println!("  config show|path             Inspect INFERNEX configuration");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
@@ -273,6 +275,41 @@ fn sha256_file(path: &str) -> io::Result<String> {
     }
     Ok(format!("{:x}", hasher.finalize()))
 }
+fn config_command(args: &[String]) -> ExitCode {
+    match args {
+        [action] if action == "path" => {
+            match config_path() {
+                Some(path) => { println!("{}", path.display()); ExitCode::SUCCESS }
+                None => { eprintln!("Cannot determine config directory on this system."); ExitCode::FAILURE }
+            }
+        }
+        [action] if action == "show" => {
+            let Some(path) = config_path() else {
+                eprintln!("Cannot determine config directory on this system.");
+                return ExitCode::FAILURE;
+            };
+            let contents = fs::read_to_string(&path).unwrap_or_default();
+            let theme = contents.lines()
+                .find_map(|line| line.split_once('='))
+                .filter(|(key, _)| key.trim() == "theme")
+                .map(|(_, value)| value.trim())
+                .unwrap_or("ember (default)");
+            let alias_count = contents.lines()
+                .filter(|line| line.split_once('=').map(|(key, _)| key.trim().starts_with("alias.")).unwrap_or(false))
+                .count();
+            println!("Config file: {}", path.display());
+            println!("Theme: {theme}");
+            println!("Saved aliases: {alias_count}");
+            println!("Alias values are not displayed.");
+            ExitCode::SUCCESS
+        }
+        _ => {
+            eprintln!("Usage: nex config show | nex config path");
+            ExitCode::from(2)
+        }
+    }
+}
+
 fn doctor() -> ExitCode {
     println!("INFERNEX diagnostics");
     println!("Core version: {VERSION}");
@@ -491,7 +528,7 @@ fn valid_alias_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 fn is_builtin_command(name: &str) -> bool {
-    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
+    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "config" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
 }
 fn remove_config_value(path: &std::path::Path, key: &str) -> io::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
