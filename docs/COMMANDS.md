@@ -1,0 +1,54 @@
+# Command reference
+
+The examples below assume the INFERNEX executable is installed as `nex`.
+
+## Core
+
+| Command | Purpose |
+|---|---|
+| `nex` | Open the interactive prompt |
+| `nex help` | Show available commands |
+| `nex version` | Show the core version |
+| `nex doctor` | Display basic environment diagnostics |
+| `nex engines` | List optional integrations |
+| `nex engines check` | Check whether integration executables are on PATH |
+| `nex theme list` | List available prompt themes |
+| `nex theme set ember` | Save and apply a prompt theme |
+
+## Native integrity tools
+
+Calculate a file's SHA-256 digest:
+
+```sh
+nex hash sha256 ./release.zip
+```
+
+Verify a file against a trusted, independently obtained checksum:
+
+```sh
+nex hash verify sha256 ./release.zip <64-character-hex-digest>
+```
+
+A matching digest confirms byte-for-byte consistency with the expected digest. It does not prove who created the file; obtain expected checksums from an authenticated, trusted source.
+
+## Native network diagnostics
+
+Resolve a hostname through the system-configured DNS resolver:
+
+```sh
+nex net resolve example.com
+```
+
+## Optional external engines
+
+Pass-through commands retain upstream arguments:
+
+```sh
+nex nmap -sV 192.0.2.10
+nex tshark -i 1
+nex metasploit
+```
+
+External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs.
+
+Only test systems and networks you own or are explicitly authorized to assess.
