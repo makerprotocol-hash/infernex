@@ -28,6 +28,21 @@ fn main() -> ExitCode {
     dispatch(&args)
 }
 fn dispatch(args: &[String]) -> ExitCode {
+    dispatch_with_aliases(args, 0)
+}
+fn dispatch_with_aliases(args: &[String], depth: usize) -> ExitCode {
+    if depth >= 8 { eprintln!("Alias expansion limit reached."); return ExitCode::from(2); }
+    if !is_builtin_command(&args[0]) {
+        if let Some(value) = alias_value(&args[0]) {
+            match tokenize(&value) {
+                Ok(mut expanded) if !expanded.is_empty() => {
+                    expanded.extend_from_slice(&args[1..]);
+                    return dispatch_with_aliases(&expanded, depth + 1);
+                }
+                _ => { eprintln!("Configured alias '{}' is invalid.", args[0]); return ExitCode::from(2); }
+            }
+        }
+    }
     match args[0].as_str() {
         "help" | "--help" | "-h" => { banner(); help(); ExitCode::SUCCESS }
         "version" | "--version" | "-V" => { println!("INFERNEX (nex) {VERSION}"); ExitCode::SUCCESS }
@@ -276,11 +291,19 @@ fn alias_command(args: &[String]) -> ExitCode {
         _ => { eprintln!("Usage: nex alias list | nex alias add <name> <command> [args...] | nex alias remove <name>"); ExitCode::from(2) }
     }
 }
+fn alias_value(name: &str) -> Option<String> {
+    let path = config_path()?;
+    let config = fs::read_to_string(path).ok()?;
+    config.lines().find_map(|line| {
+        let (key, value) = line.split_once('=')?;
+        if key.trim() == format!("alias.{name}") { Some(value.to_string()) } else { None }
+    })
+}
 fn valid_alias_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 fn is_builtin_command(name: &str) -> bool {
-    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "exit" | "quit")
+    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
 }
 fn remove_config_value(path: &std::path::Path, key: &str) -> io::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
