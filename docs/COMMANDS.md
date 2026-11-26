@@ -12,6 +12,7 @@ The examples below assume the INFERNEX executable is installed as `nex`.
 | `nex doctor` | Display basic environment diagnostics |
 | `nex engines` | List optional integrations |
 | `nex engines check` | Check whether integration executables are on PATH |
+| `nex engines info <engine>` | Show an integration's details and availability |
 | `nex theme list` | List available prompt themes |
 | `nex theme set ember` | Save and apply a prompt theme |
 | `nex alias list` | List saved command aliases |
@@ -52,7 +53,7 @@ nex tshark -i 1
 nex metasploit
 ```
 
-External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs. Run `nex install <engine>` to display the integration's official upstream source and platform-specific guidance; it does not execute an installer.
+External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs. Run `nex install <engine>` provides installation support for Nmap on Linux and upstream guidance for other cases. The Nmap Linux flow detects a supported package manager, displays the exact command, and requires you to type `YES` before starting it. It invokes the package manager through direct process arguments (not a shell); `sudo` may request your password. On Windows, use the official Nmap installer and review its Npcap options.
 
 Only test systems and networks you own or are explicitly authorized to assess.
 
@@ -81,3 +82,20 @@ nex report
 ```
 
 Aliases are expanded as argument lists and are never evaluated by a shell. Expansion is limited to eight levels.
+
+## Engine details and installation
+
+Inspect one integration:
+
+```sh
+nex engines info nmap
+```
+
+On supported Linux distributions, the Nmap installer recognizes APT, DNF, YUM, Pacman, or Zypper. It asks for an explicit `YES` before running the corresponding package-manager command with elevated privileges. Review the command and trust your configured repositories before approving it. If you decline, no package manager is started.
+
+On Windows, INFERNEX currently provides official download guidance rather than launching an installer automatically. Nmap's official Windows installer may offer Npcap and other components; review those choices during setup.
+
+Official installation references:
+- Nmap Linux installation: https://nmap.org/book/inst-linux.html
+- Nmap Windows installation: https://nmap.org/book/inst-windows.html
+- Nmap downloads: https://nmap.org/download.html
