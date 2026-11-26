@@ -286,6 +286,15 @@ mod tests {
     #[test] fn preserves_windows_path_backslashes() { assert_eq!(tokenize(r#"hash sha256 C:\Users\Public\file.bin"#).unwrap(), vec!["hash", "sha256", r#"C:\Users\Public\file.bin"#]); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
+    #[test] fn config_update_preserves_other_settings() {
+        let path = env::temp_dir().join(format!("infernex-config-test-{}", std::process::id()));
+        fs::write(&path, "theme=mono\\naliases=true\\n").unwrap();
+        set_config_value(&path, "theme", "ember").unwrap();
+        let saved = fs::read_to_string(&path).unwrap();
+        assert!(saved.contains("theme=ember"));
+        assert!(saved.contains("aliases=true"));
+        fs::remove_file(path).unwrap();
+    }
     #[test] fn hashes_file_contents() {
         let path = env::temp_dir().join(format!("infernex-hash-test-{}", std::process::id()));
         fs::write(&path, b"abc").unwrap();
