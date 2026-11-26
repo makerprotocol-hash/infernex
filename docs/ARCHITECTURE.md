@@ -4,6 +4,14 @@
 
 The initial executable is a small Rust CLI named `nex`. It owns the entry point, built-in commands, configuration location, and process dispatch.
 
+## Current native modules
+
+- `hash sha256 <file>` streams a file through SHA-256 without loading the whole file into memory.
+- `hash verify sha256 <file> <expected>` compares a computed digest against a 64-character hexadecimal checksum.
+- `net resolve <hostname>` uses the operating system resolver and displays unique returned IP addresses.
+
+These utilities are local integrity and basic network-diagnostic features. They do not perform remote exploitation or silently initiate scans.
+
 ## Intended layers
 
 1. **CLI/core** — argument parsing, help, version, diagnostics, config, logging, error handling.
