@@ -1,56 +1,91 @@
-# INFERNEX Parallel Workstreams
+# INFERNEX Parallel Engineering Workstreams
 
-This document assigns non-overlapping areas so contributors can work in parallel.
+This is a code-ownership agreement for parallel development. The second contributor owns a substantial product feature, not documentation-only work.
 
-## Core maintainer workstream
+## Core maintainer (approximately 70%)
 
-The core maintainer owns:
-- `src/main.rs` and the main command dispatcher / REPL
+Owns:
+- `src/main.rs`: CLI dispatcher, REPL, prompts, command integration
 - `Cargo.toml` and dependency decisions
-- Engine execution and engine-manager implementation
-- Core configuration and alias behavior
-- Shared architecture changes and merges to `main`
+- Engine manager, engine execution, installation workflow
+- Themes, aliases, global configuration
+- Shared architecture, release workflows, final integration and merges
 
-Do not edit these files from the documentation/QA workstream unless the maintainer explicitly asks.
+## Second contributor (approximately 30%): Authorized Scope & Asset Manager
 
-## Second contributor workstream: installation, onboarding, and QA
+Own and implement a complete, independently testable module in:
 
-The second contributor owns documentation and test planning, not the Rust CLI implementation.
+- `src/scope.rs` — all implementation and unit tests for this feature
 
-### Deliverables
-1. `docs/INSTALLATION-PLAN.md`
-   - Describe a safe first-run setup for Windows and Linux.
-   - Compare available package-manager routes for Nmap and other optional engines.
-   - Cite official upstream documentation for package IDs, commands, licensing, and platform support.
-   - Clearly distinguish verified facts from proposals that still need testing.
-   - Require explicit user consent before installing software; no silent elevation or system changes.
-2. `docs/FIRST-RUN-GUIDE.md`
-   - Explain how a new user obtains, builds, launches, and updates INFERNEX.
-   - Include Windows PowerShell and Linux shell examples.
-   - Explain that optional third-party engines are separate installs and are not bundled by INFERNEX.
-   - Keep every command aligned with the current README and command reference.
-3. `docs/MANUAL-TEST-PLAN.md`
-   - Create a practical Windows/Linux test matrix for the currently implemented commands.
-   - Include expected results, prerequisites, and clear pass/fail checkboxes.
-   - Cover missing optional engines, paths containing spaces, malformed input, config persistence, aliases, hashing, and DNS resolution where those features exist.
-   - Do not claim tests were executed; mark them as planned until someone runs them.
+Do not edit `src/main.rs`, `Cargo.toml`, `Cargo.lock`, workflows, or files owned by the core maintainer. The maintainer will connect the finished module to the CLI after reviewing its public API.
 
-### Ownership boundaries
-- Work only in `docs/**` for this assignment.
-- Do not change `src/**`, `Cargo.toml`, `Cargo.lock`, or GitHub workflows.
-- Do not duplicate existing command documentation; improve clarity and fill genuine gaps.
-- Do not invent package IDs, download URLs, checksums, or test results.
-- Do not implement automatic installers or run package managers as part of documentation work.
+### Product goal
 
-## Collaboration workflow
+Build INFERNEX's local **Authorized Scope & Asset Manager**. It helps a user record which IP addresses, CIDR networks, and hostnames they are authorized to assess, inspect the inventory, and check whether a proposed target is inside the recorded scope.
 
-1. Pull the latest `main` before starting.
-2. Create a dedicated branch, for example `docs/second-contributor-onboarding`.
-3. Keep commits focused and limited to the assigned files.
-4. Open a pull request against `main`.
-5. In the pull request, list files changed, sources consulted, and any unresolved questions.
-6. The core maintainer reviews and merges the pull request. Never push directly to `main`.
+This is a real core product feature: validation, persistence, matching, safe failure behavior, and tests—not just a document or mockup.
 
-## Definition of done
+### Required functionality
 
-The work is complete when all three documents exist, match the current repository behavior, use official sources for external installation details, and contain no unverified claims.
+Implement a public Rust API in `src/scope.rs` that supports:
+
+1. Add a scope entry:
+   - IPv4 address, IPv6 address
+   - IPv4 CIDR and IPv6 CIDR
+   - Exact hostname (case-insensitive; normalize a trailing dot)
+   - Reject URLs, paths, ports, malformed CIDRs, empty values, and unsupported wildcard patterns.
+2. List all entries in a stable, deterministic order.
+3. Remove an existing entry using normalized matching.
+4. Check a candidate target:
+   - IP address matches an exact IP entry or a containing CIDR.
+   - Hostname matches an exact hostname entry only.
+   - A hostname must not be treated as authorized merely because DNS currently resolves it to an allowed IP.
+   - Never infer authorization from a partial string match.
+5. Persist entries locally in a simple, documented, line-based format.
+   - Use a predictable per-user config location, with an environment-variable override such as `INFERNEX_SCOPE_FILE` for tests and advanced users.
+   - Create parent directories when needed.
+   - Handle missing files as an empty scope.
+   - Preserve valid entries and report malformed stored lines clearly; do not silently broaden scope.
+   - Write updates safely (temporary file then rename where practical).
+6. Return useful typed errors/results so the main CLI can display friendly messages.
+7. Include unit tests for IPv4, IPv6, CIDR boundaries, hostname normalization, invalid inputs, duplicate entries, add/remove persistence, missing files, malformed storage, and negative authorization checks.
+
+### Public API expectation
+
+Choose a clean API that the CLI can call without knowing storage details. At minimum expose equivalents of:
+- `add(value: &str) -> Result<...>`
+- `remove(value: &str) -> Result<...>`
+- `list() -> Result<Vec<...>>`
+- `check(target: &str) -> Result<bool, ...>`
+
+You may improve the names and types, but document the API in module-level comments. Prefer the Rust standard library; if an additional dependency is genuinely necessary, propose it in the pull request rather than editing Cargo files.
+
+### Safety and correctness requirements
+
+- Scope is a user-maintained authorization record, not proof of legal permission.
+- Default behavior must be deny: unknown, malformed, or unreadable scope data is never considered authorized.
+- No scanning, probing, network connections, DNS lookups, subprocesses, or automatic target discovery in this module.
+- No wildcard domains, implicit subdomain matching, or fuzzy matching.
+- Do not log secrets or overwrite unrelated configuration.
+- Keep it cross-platform (Windows and Linux).
+
+### Branch and delivery
+
+1. Pull the latest `main`.
+2. Create branch `feature/authorized-scope-manager`.
+3. Implement only `src/scope.rs` plus tests contained in that module.
+4. Run `cargo fmt --check` and `cargo test` locally; report exact results, and clearly say if you could not run them.
+5. Open a pull request against `main`. Do not merge it.
+6. In the PR description, explain the data format, public API, security decisions, test coverage, and any limitations.
+
+### Definition of done
+
+The module compiles with the existing project, is independently testable, has robust persistence and strict target matching, and is ready for the core maintainer to wire into commands such as:
+
+- `nex scope add 192.0.2.0/24`
+- `nex scope add lab.example`
+- `nex scope list`
+- `nex scope remove 192.0.2.0/24`
+- `nex scope check 192.0.2.15`
+
+The core maintainer owns those CLI command changes and integration.
