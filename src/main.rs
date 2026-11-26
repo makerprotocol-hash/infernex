@@ -47,7 +47,7 @@ fn repl() -> ExitCode {
     println!("Type 'help' for commands, 'exit' to leave.");
     let stdin = io::stdin();
     loop {
-        print!("\x1b[38;5;208mnex> \x1b[0m");
+        print!("{}nex> \x1b[0m", prompt_color());
         if io::stdout().flush().is_err() { return ExitCode::FAILURE; }
         let mut line = String::new();
         match stdin.read_line(&mut line) {
@@ -234,12 +234,35 @@ fn theme_command(args: &[String]) -> ExitCode {
             if !["ember", "spectrum", "mono"].contains(&theme.as_str()) { eprintln!("Unknown theme '{theme}'. Run 'nex theme list'."); return ExitCode::from(2); }
             let Some(path) = config_path() else { eprintln!("Cannot determine config directory."); return ExitCode::FAILURE; };
             if let Some(parent) = path.parent() { if let Err(e) = fs::create_dir_all(parent) { eprintln!("Cannot create config directory: {e}"); return ExitCode::FAILURE; } }
-            if let Err(e) = fs::write(&path, format!("theme={theme}\n")) { eprintln!("Cannot save theme: {e}"); return ExitCode::FAILURE; }
+            if let Err(e) = set_config_value(&path, "theme", &theme) { eprintln!("Cannot save theme: {e}"); return ExitCode::FAILURE; }
             println!("Theme saved: {theme}"); ExitCode::SUCCESS
         }
         _ => { eprintln!("Usage: nex theme <list|set <name>>"); ExitCode::from(2) }
     }
 }
+fn set_config_value(path: &std::path::Path, key: &str, value: &str) -> io::Result<()> {
+    let existing = fs::read_to_string(path).unwrap_or_default();
+    let mut lines = Vec::new();
+    let mut replaced = false;
+    for line in existing.lines() {
+        if line.split_once('=').map(|(k, _)| k.trim() == key).unwrap_or(false) {
+            if !replaced { lines.push(format!("{key}={value}")); replaced = true; }
+        } else { lines.push(line.to_string()); }
+    }
+    if !replaced { lines.push(format!("{key}={value}")); }
+    fs::write(path, format!("{}\n", lines.join("\n")))
+}
+fn prompt_color() -> &'static str {
+    let theme = config_path()
+        .and_then(|p| fs::read_to_string(p).ok())
+        .and_then(|contents| contents.lines().find_map(|line| line.strip_prefix("theme=")).map(str::trim).map(str::to_owned));
+    match theme.as_deref() {
+        Some("spectrum") => "\x1b[38;5;45m",
+        Some("mono") => "\x1b[38;5;250m",
+        _ => "\x1b[38;5;208m",
+    }
+}
+
 fn config_path() -> Option<PathBuf> {
     #[cfg(windows)]
     { env::var_os("APPDATA").map(|p| PathBuf::from(p).join("INFERNEX").join("config.ini")) }
