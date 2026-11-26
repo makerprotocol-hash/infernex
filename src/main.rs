@@ -1,5 +1,7 @@
 use std::env;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
+use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -28,6 +30,7 @@ fn dispatch(args: &[String]) -> ExitCode {
         "help" | "--help" | "-h" => { banner(); help(); ExitCode::SUCCESS }
         "version" | "--version" | "-V" => { println!("INFERNEX (nex) {VERSION}"); ExitCode::SUCCESS }
         "doctor" => doctor(),
+        "hash" => hash_command(&args[1..]),
         "theme" => theme_command(&args[1..]),
         "engines" => engines_command(&args[1..]),
         "install" => install_command(&args[1..]),
@@ -88,12 +91,45 @@ fn help() {
     println!("  help                         Show help");
     println!("  version                      Show version");
     println!("  doctor                       Check basic environment");
+    println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
+    println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check]              List/check supported integrations");
     println!("  install <engine>             Show installation guidance");
     println!("  theme list|set <name>        Manage terminal theme");
     println!("  <engine> [original args...]  Run an integrated engine");
     println!("\nExamples:\n  nex nmap -sV 192.0.2.10\n  nex metasploit\n  nex theme set ember");
     println!("\nOnly assess systems and networks you own or are explicitly authorized to test.");
+}
+fn hash_command(args: &[String]) -> ExitCode {
+    match args {
+        [algorithm, path] if algorithm == "sha256" => match sha256_file(path) {
+            Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS },
+            Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
+        },
+        [action, algorithm, path, expected] if action == "verify" && algorithm == "sha256" => {
+            if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
+                eprintln!("Expected SHA-256 must be exactly 64 hexadecimal characters.");
+                return ExitCode::from(2);
+            }
+            match sha256_file(path) {
+                Ok(actual) if actual.eq_ignore_ascii_case(expected) => { println!("OK: SHA-256 matches for '{}'.", path); ExitCode::SUCCESS },
+                Ok(actual) => { eprintln!("MISMATCH: expected {}, got {}", expected, actual); ExitCode::from(1) },
+                Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
+            }
+        }
+        _ => { eprintln!("Usage: nex hash sha256 <file> | nex hash verify sha256 <file> <expected-hex>"); ExitCode::from(2) }
+    }
+}
+fn sha256_file(path: &str) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 { break; }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 fn doctor() -> ExitCode {
     println!("INFERNEX diagnostics\nCore: {VERSION}\nOS: {}\nArchitecture: {}", env::consts::OS, env::consts::ARCH);
@@ -176,4 +212,5 @@ mod tests {
     #[test] fn tokenizes_quoted_args() { assert_eq!(tokenize("web --url \"https://example.test/a b\"").unwrap(), vec!["web", "--url", "https://example.test/a b"]); }
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
+    #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
 }
