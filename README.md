@@ -16,11 +16,10 @@ The Rust core now includes:
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
 - Basic environment diagnostics and installation guidance.
 - Native system-DNS hostname resolution.
-- Native SHA-256 file integrity hashing and checksum verification.
-- Native streaming SHA-256 file hashing and checksum verification.
+- Native streaming SHA-256 file integrity hashing and checksum verification.
 - Initial unit tests and Windows/Linux CI configuration.
 
-This is an early foundation. External engines are **not bundled or automatically installed**, and the theme system currently saves a preference rather than rendering a fully customizable terminal. The installer, updater, richer configuration, and additional original security modules remain future work. SHA-256 hashing is the first native integrity utility.
+This is an early foundation. External engines are **not bundled or automatically installed**, The themes currently style the interactive prompt; full terminal-wide theming is still future work. The installer, updater, richer configuration, and additional original security modules remain future work. SHA-256 hashing is the first native integrity utility.
 
 ## Build from source
 
@@ -63,6 +62,7 @@ Engine commands require the corresponding upstream program to be installed and a
 
 ## Documentation
 
+- [Command reference](docs/COMMANDS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
