@@ -1,0 +1,13 @@
+[package]
+name = "infernex"
+version = "0.1.0"
+edition = "2021"
+description = "Unified cybersecurity command environment"
+license = "UNLICENSED"
+repository = "https://github.com/makerprotocol-hash/infernex"
+
+[[bin]]
+name = "nex"
+path = "src/main.rs"
+
+[dependencies]
