@@ -49,6 +49,6 @@ nex tshark -i 1
 nex metasploit
 ```
 
-External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs.
+External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs. Run `nex install <engine>` to display the integration's official upstream source and platform-specific guidance; it does not execute an installer.
 
 Only test systems and networks you own or are explicitly authorized to assess.
