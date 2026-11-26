@@ -64,19 +64,39 @@ fn repl() -> ExitCode {
 }
 // Quote-aware tokenizer; child arguments are passed directly without shell evaluation.
 fn tokenize(input: &str) -> Result<Vec<String>, &'static str> {
-    let mut out = Vec::new(); let mut current = String::new();
-    let mut quote: Option<char> = None; let mut escaped = false; let mut started = false;
-    for c in input.chars() {
-        if escaped { current.push(c); escaped = false; started = true; continue; }
-        if c == '\\' && quote != Some('\'') { escaped = true; started = true; continue; }
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut started = false;
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
         if let Some(q) = quote {
-            if c == q { quote = None; } else { current.push(c); }
+            if c == q { quote = None; }
+            else if c == '\\\\' && q == '"' {
+                match chars.peek().copied() {
+                    Some('"') | Some('\\\\') => current.push(chars.next().unwrap()),
+                    _ => current.push(c),
+                }
+            } else { current.push(c); }
             started = true;
-        } else if c == '"' || c == '\'' { quote = Some(c); started = true; }
-        else if c.is_whitespace() { if started { out.push(std::mem::take(&mut current)); started = false; } }
-        else { current.push(c); started = true; }
+        } else if c == '"' || c == '\\'' {
+            quote = Some(c);
+            started = true;
+        } else if c == '\\\\' {
+            match chars.peek().copied() {
+                Some(next) if next.is_whitespace() || next == '"' || next == '\\'' || next == '\\\\' => {
+                    current.push(chars.next().unwrap());
+                }
+                _ => current.push(c),
+            }
+            started = true;
+        } else if c.is_whitespace() {
+            if started { out.push(std::mem::take(&mut current)); started = false; }
+        } else {
+            current.push(c);
+            started = true;
+        }
     }
-    if escaped { current.push('\\'); }
     if quote.is_some() { return Err("unclosed quote"); }
     if started { out.push(current); }
     Ok(out)
