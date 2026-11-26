@@ -5,6 +5,8 @@ use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
+use std::net::ToSocketAddrs;
+use std::collections::BTreeSet;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -31,6 +33,7 @@ fn dispatch(args: &[String]) -> ExitCode {
         "version" | "--version" | "-V" => { println!("INFERNEX (nex) {VERSION}"); ExitCode::SUCCESS }
         "doctor" => doctor(),
         "hash" => hash_command(&args[1..]),
+        "net" => net_command(&args[1..]),
         "theme" => theme_command(&args[1..]),
         "engines" => engines_command(&args[1..]),
         "install" => install_command(&args[1..]),
@@ -111,6 +114,7 @@ fn help() {
     println!("  help                         Show help");
     println!("  version                      Show version");
     println!("  doctor                       Check basic environment");
+    println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check]              List/check supported integrations");
@@ -120,6 +124,31 @@ fn help() {
     println!("\nExamples:\n  nex nmap -sV 192.0.2.10\n  nex metasploit\n  nex theme set ember");
     println!("\nOnly assess systems and networks you own or are explicitly authorized to test.");
 }
+fn net_command(args: &[String]) -> ExitCode {
+    match args {
+        [action, hostname] if action == "resolve" => {
+            if hostname.is_empty() || hostname.contains('/') || hostname.contains('\\') {
+                eprintln!("Provide a hostname, not a URL or path.");
+                return ExitCode::from(2);
+            }
+            match (hostname.as_str(), 0).to_socket_addrs() {
+                Ok(addresses) => {
+                    let ips: BTreeSet<String> = addresses.map(|a| a.ip().to_string()).collect();
+                    if ips.is_empty() {
+                        println!("No addresses returned for {hostname}.");
+                        return ExitCode::from(1);
+                    }
+                    println!("DNS results for {hostname}:");
+                    for ip in ips { println!("  {ip}"); }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => { eprintln!("DNS resolution failed for {hostname}: {e}"); ExitCode::from(1) }
+            }
+        }
+        _ => { eprintln!("Usage: nex net resolve <hostname>"); ExitCode::from(2) }
+    }
+}
+
 fn hash_command(args: &[String]) -> ExitCode {
     match args {
         [algorithm, path] if algorithm == "sha256" => match sha256_file(path) {
