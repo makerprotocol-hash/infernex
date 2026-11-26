@@ -10,6 +10,8 @@ The examples below assume the INFERNEX executable is installed as `nex`.
 | `nex help` | Show available commands |
 | `nex version` | Show the core version |
 | `nex doctor` | Display platform, config, color, and optional-engine diagnostics |
+| `nex config show` | Show configuration location, theme, and alias count |
+| `nex config path` | Print the configuration file path |
 | `nex engines` | List optional integrations |
 | `nex engines check` | Check whether integration executables are on PATH |
 | `nex engines info <engine>` | Show an integration's details and availability |
@@ -121,3 +123,12 @@ The output reports the address family and standard loopback, private, link-local
 ## Diagnostics
 
 Run `nex doctor` to display the core version, operating system and architecture, config-file location, color-output state, and the number of optional engines detected on `PATH`. Missing engines are listed with their upstream project links. Diagnostics are read-only and do not install software or change system settings.
+
+## Configuration inspection
+
+```sh
+nex config show
+nex config path
+```
+
+`config show` reports the active theme and number of saved aliases without printing alias values. `config path` prints the configuration file location. Both commands are read-only.
