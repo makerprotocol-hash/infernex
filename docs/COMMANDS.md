@@ -53,7 +53,7 @@ nex tshark -i 1
 nex metasploit
 ```
 
-External programs must be installed separately and available on PATH. INFERNEX does not currently install or update those programs. Run `nex install <engine>` provides installation support for Nmap on Linux and upstream guidance for other cases. The Nmap Linux flow detects a supported package manager, displays the exact command, and requires you to type `YES` before starting it. It invokes the package manager through direct process arguments (not a shell); `sudo` may request your password. On Windows, use the official Nmap installer and review its Npcap options.
+External programs must be installed separately and available on PATH. INFERNEX does not update external programs. `nex install <engine>` provides installation support for Nmap on Linux and upstream guidance for other cases. The Nmap Linux flow detects a supported package manager, displays the exact command, and requires you to type `YES` before starting it. It invokes the package manager through direct process arguments (not a shell); `sudo` may request your password. On Windows, use the official Nmap installer and review its Npcap options.
 
 Only test systems and networks you own or are explicitly authorized to assess.
 
@@ -108,3 +108,12 @@ nex net cidr 2001:db8:abcd::1/48
 ```
 
 The command reports the normalized network, mask, first and last addresses, and total address count. For IPv4 it also reports the traditional usable-host count (with /31 and /32 handled as special cases). It does not probe or scan the range.
+
+Inspect an address locally (no packets are sent):
+
+```sh
+nex net inspect 192.168.1.10
+nex net inspect fd00::1
+```
+
+The output reports the address family and standard loopback, private, link-local, multicast, unspecified, and (for IPv4) broadcast classifications. These labels describe address properties only; they do not prove that a host is reachable, safe, or authorized.
