@@ -14,7 +14,8 @@ The Rust core now includes:
 - A small registry of optional external engine adapters.
 - Engine availability checks through `nex engines check`.
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
-- Basic environment diagnostics and installation guidance.
+- Basic environment diagnostics and engine-specific information.
+- A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
 - Native system-DNS hostname resolution.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
 - Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
@@ -55,7 +56,7 @@ nex metasploit
 nex tshark -i 1
 ```
 
-Engine commands require the corresponding upstream program to be installed and available on PATH. `nex install <engine>` currently provides guidance only; it does not install software automatically.
+Engine commands require the corresponding upstream program to be installed and available on PATH. `nex install nmap` can invoke a supported Linux package manager only after displaying the exact command and receiving an explicit `YES`; on Windows it provides official installer guidance. Other engines remain guidance-only.
 
 ## Design principles
 
