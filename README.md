@@ -13,9 +13,10 @@ The Rust core now includes:
 - One-shot commands such as `nex help` and `nex nmap -sV <authorized-target>`.
 - A small registry of optional external engine adapters.
 - Engine availability checks through `nex engines check`.
-- Basic theme preference storage (`ember`, `spectrum`, `mono`).
+- Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
 - Basic environment diagnostics and installation guidance.
 - Native system-DNS hostname resolution.
+- Native SHA-256 file integrity hashing and checksum verification.
 - Native streaming SHA-256 file hashing and checksum verification.
 - Initial unit tests and Windows/Linux CI configuration.
 
