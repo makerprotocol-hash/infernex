@@ -137,6 +137,7 @@ fn help() {
     println!("  doctor                       Check basic environment");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
+    println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check|info <name>]  List/check/inspect integrations");
@@ -169,8 +170,29 @@ fn net_command(args: &[String]) -> ExitCode {
             }
         }
         [action, cidr] if action == "cidr" => cidr_command(cidr),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix>"); ExitCode::from(2) }
+        [action, address] if action == "inspect" => inspect_ip_command(address),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip>"); ExitCode::from(2) }
     }
+}
+
+fn inspect_ip_command(value: &str) -> ExitCode {
+    let Ok(ip) = value.parse::<std::net::IpAddr>() else {
+        eprintln!("Invalid IP address: '{value}'. Provide a plain IPv4 or IPv6 address.");
+        return ExitCode::from(2);
+    };
+    println!("Address: {ip}");
+    println!("Family: {}", if ip.is_ipv4() { "IPv4" } else { "IPv6" });
+    println!("Loopback: {}", ip.is_loopback());
+    println!("Private: {}", ip.is_private());
+    println!("Link-local: {}", ip.is_link_local());
+    println!("Multicast: {}", ip.is_multicast());
+    println!("Unspecified: {}", ip.is_unspecified());
+    match ip {
+        std::net::IpAddr::V4(v4) => println!("Broadcast: {}", v4.is_broadcast()),
+        std::net::IpAddr::V6(_) => println!("Broadcast: not applicable to IPv6"),
+    }
+    println!("Note: address classification does not establish reachability or authorization.");
+    ExitCode::SUCCESS
 }
 
 fn cidr_command(value: &str) -> ExitCode {
@@ -537,6 +559,20 @@ mod tests {
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Yum), ("sudo", &["yum", "install", "-y", "nmap"][..]));
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Pacman), ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"][..]));
         assert_eq!(linux_nmap_install_command(LinuxPackageManager::Zypper), ("sudo", &["zypper", "--non-interactive", "install", "nmap"][..]));
+    }
+    #[test] fn ip_inspection_classifies_loopback_and_private_addresses() {
+        let loopback: std::net::IpAddr = "127.0.0.1".parse().unwrap();
+        let private: std::net::IpAddr = "192.168.1.10".parse().unwrap();
+        let public_example: std::net::IpAddr = "203.0.113.10".parse().unwrap();
+        assert!(loopback.is_loopback());
+        assert!(private.is_private());
+        assert!(!public_example.is_private());
+    }
+    #[test] fn ip_inspection_supports_ipv6_classification() {
+        let loopback: std::net::IpAddr = "::1".parse().unwrap();
+        let unique_local: std::net::IpAddr = "fd00::1".parse().unwrap();
+        assert!(loopback.is_loopback());
+        assert!(unique_local.is_private());
     }
     #[test] fn cidr_v4_calculates_network_boundaries() {
         let ip = std::net::Ipv4Addr::new(192, 0, 2, 17);
