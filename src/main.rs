@@ -290,9 +290,10 @@ fn config_command(args: &[String]) -> ExitCode {
             };
             let contents = fs::read_to_string(&path).unwrap_or_default();
             let theme = contents.lines()
-                .find_map(|line| line.split_once('='))
-                .filter(|(key, _)| key.trim() == "theme")
-                .map(|(_, value)| value.trim())
+                .find_map(|line| {
+                    let (key, value) = line.split_once('=')?;
+                    if key.trim() == "theme" { Some(value.trim()) } else { None }
+                })
                 .unwrap_or("ember (default)");
             let alias_count = contents.lines()
                 .filter(|line| line.split_once('=').map(|(key, _)| key.trim().starts_with("alias.")).unwrap_or(false))
