@@ -35,6 +35,7 @@ fn dispatch(args: &[String]) -> ExitCode {
         "hash" => hash_command(&args[1..]),
         "net" => net_command(&args[1..]),
         "theme" => theme_command(&args[1..]),
+        "alias" => alias_command(&args[1..]),
         "engines" => engines_command(&args[1..]),
         "install" => install_command(&args[1..]),
         "update" => { println!("Self-update is not available yet; use official INFERNEX releases when published."); ExitCode::SUCCESS }
@@ -120,6 +121,7 @@ fn help() {
     println!("  engines [check]              List/check supported integrations");
     println!("  install <engine>             Show installation guidance");
     println!("  theme list|set <name>        Manage terminal theme");
+    println!("  alias list|add|remove         Manage safe command aliases");
     println!("  <engine> [original args...]  Run an integrated engine");
     println!("\nExamples:\n  nex nmap -sV 192.0.2.10\n  nex metasploit\n  nex theme set ember");
     println!("\nOnly assess systems and networks you own or are explicitly authorized to test.");
@@ -240,6 +242,52 @@ fn theme_command(args: &[String]) -> ExitCode {
         _ => { eprintln!("Usage: nex theme <list|set <name>>"); ExitCode::from(2) }
     }
 }
+fn alias_command(args: &[String]) -> ExitCode {
+    match args {
+        [action] if action == "list" => {
+            let Some(path) = config_path() else { eprintln!("Cannot determine config directory."); return ExitCode::FAILURE; };
+            let config = fs::read_to_string(path).unwrap_or_default();
+            let mut found = false;
+            for line in config.lines() {
+                if let Some((key, value)) = line.split_once('=') {
+                    if let Some(name) = key.strip_prefix("alias.") { println!("{name} = {value}"); found = true; }
+                }
+            }
+            if !found { println!("No aliases configured."); }
+            ExitCode::SUCCESS
+        }
+        [action, name] if action == "remove" => {
+            if !valid_alias_name(name) { eprintln!("Invalid alias name."); return ExitCode::from(2); }
+            let Some(path) = config_path() else { eprintln!("Cannot determine config directory."); return ExitCode::FAILURE; };
+            if let Err(e) = remove_config_value(&path, &format!("alias.{name}")) { eprintln!("Cannot update config: {e}"); return ExitCode::FAILURE; }
+            println!("Alias removed: {name}");
+            ExitCode::SUCCESS
+        }
+        [action, name, command @ ..] if action == "add" && !command.is_empty() => {
+            if !valid_alias_name(name) || is_builtin_command(name) { eprintln!("Invalid or reserved alias name."); return ExitCode::from(2); }
+            let value = command.join(" ");
+            if tokenize(&value).map(|v| v.is_empty()).unwrap_or(true) { eprintln!("Alias command is invalid."); return ExitCode::from(2); }
+            let Some(path) = config_path() else { eprintln!("Cannot determine config directory."); return ExitCode::FAILURE; };
+            if let Some(parent) = path.parent() { if let Err(e) = fs::create_dir_all(parent) { eprintln!("Cannot create config directory: {e}"); return ExitCode::FAILURE; } }
+            if let Err(e) = set_config_value(&path, &format!("alias.{name}"), &value) { eprintln!("Cannot save alias: {e}"); return ExitCode::FAILURE; }
+            println!("Alias saved: {name} = {value}");
+            ExitCode::SUCCESS
+        }
+        _ => { eprintln!("Usage: nex alias list | nex alias add <name> <command> [args...] | nex alias remove <name>"); ExitCode::from(2) }
+    }
+}
+fn valid_alias_name(name: &str) -> bool {
+    !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+fn is_builtin_command(name: &str) -> bool {
+    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "exit" | "quit")
+}
+fn remove_config_value(path: &std::path::Path, key: &str) -> io::Result<()> {
+    let existing = fs::read_to_string(path).unwrap_or_default();
+    let lines: Vec<&str> = existing.lines().filter(|line| line.split_once('=').map(|(k, _)| k.trim() != key).unwrap_or(true)).collect();
+    fs::write(path, if lines.is_empty() { String::new() } else { format!("{}\n", lines.join("\n")) })
+}
+
 fn set_config_value(path: &std::path::Path, key: &str, value: &str) -> io::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
     let mut lines = Vec::new();
