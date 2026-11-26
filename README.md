@@ -15,6 +15,7 @@ The Rust core now includes:
 - Engine availability checks through `nex engines check`.
 - Basic theme preference storage (`ember`, `spectrum`, `mono`).
 - Basic environment diagnostics and installation guidance.
+- Native system-DNS hostname resolution.
 - Native streaming SHA-256 file hashing and checksum verification.
 - Initial unit tests and Windows/Linux CI configuration.
 
@@ -37,6 +38,7 @@ The executable is produced as `target/release/nex.exe` on Windows and `target/re
 nex
 nex help
 nex doctor
+nex net resolve example.com
 nex hash sha256 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
 nex engines
