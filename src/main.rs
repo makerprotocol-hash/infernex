@@ -274,9 +274,20 @@ fn sha256_file(path: &str) -> io::Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 fn doctor() -> ExitCode {
-    println!("INFERNEX diagnostics\nCore: {VERSION}\nOS: {}\nArchitecture: {}", env::consts::OS, env::consts::ARCH);
-    println!("Config: {}", config_path().map(|p| p.display().to_string()).unwrap_or_else(|| "unavailable".into()));
-    println!("Run 'nex engines check' to inspect optional integrations.");
+    println!("INFERNEX diagnostics");
+    println!("Core version: {VERSION}");
+    println!("Operating system: {} ({})", env::consts::OS, env::consts::ARCH);
+    println!("Config file: {}", config_path().map(|p| p.display().to_string()).unwrap_or_else(|| "unavailable".into()));
+    println!("Color output: {}", if colors_enabled() { "enabled" } else { "disabled (NO_COLOR)" });
+    let available = ENGINES.iter().filter(|engine| executable_available(engine.executable)).count();
+    println!("Optional engines: {available}/{} detected on PATH", ENGINES.len());
+    if available < ENGINES.len() {
+        println!("Missing engines:");
+        for engine in ENGINES.iter().filter(|engine| !executable_available(engine.executable)) {
+            println!("  {:12} {}", engine.name, engine.upstream);
+        }
+    }
+    println!("Diagnostics do not install software or modify system settings.");
     ExitCode::SUCCESS
 }
 fn engines_command(args: &[String]) -> ExitCode {
