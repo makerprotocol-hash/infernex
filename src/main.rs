@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy)]
-struct Engine { name: &'static str, executable: &'static str, description: &'static str }
+struct Engine { name: &'static str, executable: &'static str, description: &'static str, upstream: &'static str }
 const ENGINES: &[Engine] = &[
     Engine { name: "nmap", executable: "nmap", description: "Network discovery and port scanning" },
     Engine { name: "metasploit", executable: "msfconsole", description: "Metasploit Framework console" },
@@ -234,6 +234,7 @@ fn install_command(args: &[String]) -> ExitCode {
     let Some(name) = args.first() else { eprintln!("Usage: nex install <engine>"); return ExitCode::from(2); };
     let Some(engine) = ENGINES.iter().find(|e| e.name == name) else { eprintln!("Unknown engine '{name}'. Run 'nex engines'."); return ExitCode::from(2); };
     println!("Installation guidance for {} ({})", engine.name, engine.executable);
+    println!("Official upstream: {}", engine.upstream);
     println!("Automatic third-party installation is not implemented yet.");
     println!("Use the upstream project's official source and review its license before installing.");
     #[cfg(windows)]
