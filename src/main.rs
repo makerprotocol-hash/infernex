@@ -213,4 +213,10 @@ mod tests {
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
+    #[test] fn hashes_file_contents() {
+        let path = env::temp_dir().join(format!("infernex-hash-test-{}", std::process::id()));
+        fs::write(&path, b"abc").unwrap();
+        assert_eq!(sha256_file(path.to_str().unwrap()).unwrap(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        fs::remove_file(path).unwrap();
+    }
 }
