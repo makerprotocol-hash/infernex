@@ -17,9 +17,10 @@ The Rust core now includes:
 - Basic environment diagnostics and installation guidance.
 - Native system-DNS hostname resolution.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
+- Persistent user-defined command aliases with bounded expansion and no shell evaluation.
 - Initial unit tests and Windows/Linux CI configuration.
 
-This is an early foundation. External engines are **not bundled or automatically installed**, The themes currently style the interactive prompt; full terminal-wide theming is still future work. The installer, updater, richer configuration, and additional original security modules remain future work. SHA-256 hashing is the first native integrity utility.
+This is an early foundation. External engines are **not bundled or automatically installed**. Themes currently style the interactive prompt; full terminal-wide theming is still future work. The installer, updater, and additional original security modules remain future work.
 
 ## Build from source
 
@@ -45,6 +46,9 @@ nex engines
 nex engines check
 nex theme list
 nex theme set ember
+nex alias add quickscan nmap -sV 192.0.2.10
+nex alias list
+nex quickscan
 nex nmap -sV 192.0.2.10
 nex metasploit
 nex tshark -i 1
