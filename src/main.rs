@@ -288,6 +288,16 @@ fn detect_linux_package_manager() -> Option<LinuxPackageManager> {
     else { None }
 }
 
+fn linux_nmap_install_command(manager: LinuxPackageManager) -> (&'static str, &'static [&'static str]) {
+    match manager {
+        LinuxPackageManager::Apt => ("sudo", &["apt-get", "install", "-y", "nmap"]),
+        LinuxPackageManager::Dnf => ("sudo", &["dnf", "install", "-y", "nmap"]),
+        LinuxPackageManager::Yum => ("sudo", &["yum", "install", "-y", "nmap"]),
+        LinuxPackageManager::Pacman => ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"]),
+        LinuxPackageManager::Zypper => ("sudo", &["zypper", "--non-interactive", "install", "nmap"]),
+    }
+}
+
 fn install_nmap() -> ExitCode {
     #[cfg(windows)]
     {
@@ -303,13 +313,7 @@ fn install_nmap() -> ExitCode {
             eprintln!("Install Nmap from https://nmap.org/download.html");
             return ExitCode::from(1);
         };
-        let (program, args): (&str, &[&str]) = match manager {
-            LinuxPackageManager::Apt => ("sudo", &["apt-get", "install", "-y", "nmap"]),
-            LinuxPackageManager::Dnf => ("sudo", &["dnf", "install", "-y", "nmap"]),
-            LinuxPackageManager::Yum => ("sudo", &["yum", "install", "-y", "nmap"]),
-            LinuxPackageManager::Pacman => ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"]),
-            LinuxPackageManager::Zypper => ("sudo", &["zypper", "--non-interactive", "install", "nmap"]),
-        };
+        let (program, args) = linux_nmap_install_command(manager);
         println!("INFERNEX is ready to request Nmap installation using {program} {}.", args.join(" "));
         println!("This will modify your system and may install additional dependencies.");
         println!("Only continue if you trust your configured package repositories.");
@@ -478,9 +482,12 @@ mod tests {
     }
     #[test] fn preserves_windows_path_backslashes() { assert_eq!(tokenize(r#"hash sha256 C:\Users\Public\file.bin"#).unwrap(), vec!["hash", "sha256", r#"C:\Users\Public\file.bin"#]); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
-    #[test] fn linux_package_manager_priority_is_deterministic() {
-        assert_eq!(LinuxPackageManager::Apt, LinuxPackageManager::Apt);
-        assert_ne!(LinuxPackageManager::Apt, LinuxPackageManager::Dnf);
+    #[test] fn linux_package_manager_commands_are_explicit_and_target_nmap() {
+        assert_eq!(linux_nmap_install_command(LinuxPackageManager::Apt), ("sudo", &["apt-get", "install", "-y", "nmap"][..]));
+        assert_eq!(linux_nmap_install_command(LinuxPackageManager::Dnf), ("sudo", &["dnf", "install", "-y", "nmap"][..]));
+        assert_eq!(linux_nmap_install_command(LinuxPackageManager::Yum), ("sudo", &["yum", "install", "-y", "nmap"][..]));
+        assert_eq!(linux_nmap_install_command(LinuxPackageManager::Pacman), ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"][..]));
+        assert_eq!(linux_nmap_install_command(LinuxPackageManager::Zypper), ("sudo", &["zypper", "--non-interactive", "install", "nmap"][..]));
     }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
     #[test] fn config_update_preserves_other_settings() {
