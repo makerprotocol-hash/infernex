@@ -16,7 +16,7 @@ The Rust core now includes:
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
 - Basic environment diagnostics and engine-specific information.
 - A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
-- Native system-DNS hostname resolution and offline IPv4/IPv6 CIDR range inspection.
+- Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, and local IP address classification.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
 - Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
 - Optional ANSI color suppression through the standard `NO_COLOR` environment variable.
@@ -43,6 +43,7 @@ nex help
 nex doctor
 nex net resolve example.com
 nex net cidr 192.0.2.17/24
+nex net inspect 192.168.1.10
 nex hash sha256 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
 nex engines
