@@ -13,13 +13,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Clone, Copy)]
 struct Engine { name: &'static str, executable: &'static str, description: &'static str, upstream: &'static str }
 const ENGINES: &[Engine] = &[
-    Engine { name: "nmap", executable: "nmap", description: "Network discovery and port scanning" },
-    Engine { name: "metasploit", executable: "msfconsole", description: "Metasploit Framework console" },
-    Engine { name: "tshark", executable: "tshark", description: "Command-line packet analysis" },
-    Engine { name: "wireshark", executable: "wireshark", description: "Wireshark graphical application" },
-    Engine { name: "sqlmap", executable: "sqlmap", description: "SQL injection testing in authorized labs" },
-    Engine { name: "john", executable: "john", description: "Password hash auditing" },
-    Engine { name: "hydra", executable: "hydra", description: "Login security auditing" },
+    Engine { name: "nmap", executable: "nmap", description: "Network discovery and port scanning", upstream: "https://nmap.org/download.html" },
+    Engine { name: "metasploit", executable: "msfconsole", description: "Metasploit Framework console", upstream: "https://docs.metasploit.com/" },
+    Engine { name: "tshark", executable: "tshark", description: "Command-line packet analysis", upstream: "https://www.wireshark.org/download.html" },
+    Engine { name: "wireshark", executable: "wireshark", description: "Wireshark graphical application", upstream: "https://www.wireshark.org/download.html" },
+    Engine { name: "sqlmap", executable: "sqlmap", description: "SQL injection testing in authorized labs", upstream: "https://github.com/sqlmapproject/sqlmap" },
+    Engine { name: "john", executable: "john", description: "Password hash auditing", upstream: "https://www.openwall.com/john/" },
+    Engine { name: "hydra", executable: "hydra", description: "Login security auditing", upstream: "https://github.com/vanhauser-thc/thc-hydra" },
 ];
 
 fn main() -> ExitCode {
