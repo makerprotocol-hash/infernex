@@ -14,7 +14,7 @@ The Rust core now includes:
 - A small registry of optional external engine adapters.
 - Engine availability checks through `nex engines check`.
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
-- Basic environment diagnostics and engine-specific information.
+- Expanded read-only environment diagnostics, including platform, config, color, and optional-engine status.
 - A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
 - Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, and local IP address classification.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
