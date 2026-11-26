@@ -138,8 +138,8 @@ fn help() {
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
-    println!("  engines [check]              List/check supported integrations");
-    println!("  install <engine>             Show installation guidance");
+    println!("  engines [check|info <name>]  List/check/inspect integrations");
+    println!("  install <engine>             Install Nmap (Linux) or show guidance");
     println!("  theme list|set <name>        Manage terminal theme");
     println!("  alias list|add|remove         Manage safe command aliases");
     println!("  <engine> [original args...]  Run an integrated engine");
@@ -221,7 +221,23 @@ fn engines_command(args: &[String]) -> ExitCode {
             println!("\n{} available, {} missing.", ENGINES.len() - missing, missing);
             ExitCode::SUCCESS
         }
-        _ => { eprintln!("Usage: nex engines [check]"); ExitCode::from(2) }
+        Some("info") if args.len() == 2 => {
+            let Some(engine) = ENGINES.iter().find(|e| e.name == args[1]) else {
+                eprintln!("Unknown engine '{}'. Run 'nex engines'.", args[1]);
+                return ExitCode::from(2);
+            };
+            println!("{} — {}", engine.name, engine.description);
+            println!("Executable: {}", engine.executable);
+            println!("Status: {}", if executable_available(engine.executable) { "available on PATH" } else { "not found on PATH" });
+            println!("Official upstream: {}", engine.upstream);
+            if engine.name == "nmap" {
+                println!("Install: nex install nmap");
+            } else {
+                println!("Install guidance: nex install {}", engine.name);
+            }
+            ExitCode::SUCCESS
+        }
+        _ => { eprintln!("Usage: nex engines [check | info <engine>]"); ExitCode::from(2) }
     }
 }
 fn executable_available(exe: &str) -> bool {
@@ -236,18 +252,98 @@ fn executable_available(exe: &str) -> bool {
     false
 }
 fn install_command(args: &[String]) -> ExitCode {
-    let Some(name) = args.first() else { eprintln!("Usage: nex install <engine>"); return ExitCode::from(2); };
-    let Some(engine) = ENGINES.iter().find(|e| e.name == name) else { eprintln!("Unknown engine '{name}'. Run 'nex engines'."); return ExitCode::from(2); };
+    if args.len() != 1 {
+        eprintln!("Usage: nex install <engine>");
+        return ExitCode::from(2);
+    }
+    let name = args[0].as_str();
+    let Some(engine) = ENGINES.iter().find(|e| e.name == name) else {
+        eprintln!("Unknown engine '{name}'. Run 'nex engines'.");
+        return ExitCode::from(2);
+    };
+    if executable_available(engine.executable) {
+        println!("{} is already available on PATH.", engine.name);
+        return ExitCode::SUCCESS;
+    }
+    if engine.name == "nmap" {
+        return install_nmap();
+    }
     println!("Installation guidance for {} ({})", engine.name, engine.executable);
     println!("Official upstream: {}", engine.upstream);
-    println!("Automatic third-party installation is not implemented yet.");
+    println!("INFERNEX does not yet automate installation of this engine.");
     println!("Use the upstream project's official source and review its license before installing.");
-    #[cfg(windows)]
-    println!("Windows: follow the upstream project's official Windows installation instructions.");
-    #[cfg(target_os = "linux")]
-    println!("Linux: use your distribution's trusted package manager where supported.");
     println!("After installation, run 'nex engines check'.");
     ExitCode::SUCCESS
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LinuxPackageManager { Apt, Dnf, Yum, Pacman, Zypper }
+
+fn detect_linux_package_manager() -> Option<LinuxPackageManager> {
+    if executable_available("apt-get") { Some(LinuxPackageManager::Apt) }
+    else if executable_available("dnf") { Some(LinuxPackageManager::Dnf) }
+    else if executable_available("yum") { Some(LinuxPackageManager::Yum) }
+    else if executable_available("pacman") { Some(LinuxPackageManager::Pacman) }
+    else if executable_available("zypper") { Some(LinuxPackageManager::Zypper) }
+    else { None }
+}
+
+fn install_nmap() -> ExitCode {
+    #[cfg(windows)]
+    {
+        println!("Automatic Nmap installation is not enabled on Windows yet.");
+        println!("Download the official Nmap installer from https://nmap.org/download.html");
+        println!("Review the installer options, including Npcap, before proceeding.");
+        return ExitCode::SUCCESS;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let Some(manager) = detect_linux_package_manager() else {
+            eprintln!("No supported package manager found (apt-get, dnf, yum, pacman, zypper).");
+            eprintln!("Install Nmap from https://nmap.org/download.html");
+            return ExitCode::from(1);
+        };
+        let (program, args): (&str, &[&str]) = match manager {
+            LinuxPackageManager::Apt => ("sudo", &["apt-get", "install", "-y", "nmap"]),
+            LinuxPackageManager::Dnf => ("sudo", &["dnf", "install", "-y", "nmap"]),
+            LinuxPackageManager::Yum => ("sudo", &["yum", "install", "-y", "nmap"]),
+            LinuxPackageManager::Pacman => ("sudo", &["pacman", "-S", "--needed", "--noconfirm", "nmap"]),
+            LinuxPackageManager::Zypper => ("sudo", &["zypper", "--non-interactive", "install", "nmap"]),
+        };
+        println!("INFERNEX is ready to request Nmap installation using {program} {}.", args.join(" "));
+        println!("This will modify your system and may install additional dependencies.");
+        println!("Only continue if you trust your configured package repositories.");
+        print!("Type YES to authorize this package-manager operation: ");
+        if io::stdout().flush().is_err() { return ExitCode::FAILURE; }
+        let mut confirmation = String::new();
+        if io::stdin().read_line(&mut confirmation).is_err() { return ExitCode::FAILURE; }
+        if confirmation.trim() != "YES" {
+            println!("Installation cancelled. No package manager was started.");
+            return ExitCode::SUCCESS;
+        }
+        match Command::new(program).args(args).status() {
+            Ok(status) if status.success() => {
+                if executable_available("nmap") {
+                    println!("Nmap installation completed and nmap is available on PATH.");
+                    ExitCode::SUCCESS
+                } else {
+                    println!("Package manager completed. Open a new terminal or check PATH with 'nex engines check'.");
+                    ExitCode::from(1)
+                }
+            }
+            Ok(status) => {
+                eprintln!("Package manager exited with status {}.", status.code().unwrap_or(1));
+                ExitCode::from(status.code().unwrap_or(1).clamp(1, 255) as u8)
+            }
+            Err(error) => { eprintln!("Could not start package manager: {error}"); ExitCode::FAILURE }
+        }
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        println!("Automatic Nmap installation is supported only on Windows/Linux guidance and Linux package managers.");
+        println!("Official upstream: https://nmap.org/download.html");
+        ExitCode::SUCCESS
+    }
 }
 fn theme_command(args: &[String]) -> ExitCode {
     match args.first().map(String::as_str) {
@@ -382,6 +478,10 @@ mod tests {
     }
     #[test] fn preserves_windows_path_backslashes() { assert_eq!(tokenize(r#"hash sha256 C:\Users\Public\file.bin"#).unwrap(), vec!["hash", "sha256", r#"C:\Users\Public\file.bin"#]); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
+    #[test] fn linux_package_manager_priority_is_deterministic() {
+        assert_eq!(LinuxPackageManager::Apt, LinuxPackageManager::Apt);
+        assert_ne!(LinuxPackageManager::Apt, LinuxPackageManager::Dnf);
+    }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
     #[test] fn config_update_preserves_other_settings() {
         let path = env::temp_dir().join(format!("infernex-config-test-{}", std::process::id()));
