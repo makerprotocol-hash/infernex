@@ -2,28 +2,42 @@
 
 **One command environment. Familiar security-tool syntax. Original tools.**
 
-INFERNEX is a Windows-first, unified cybersecurity command environment for authorized security research, defensive assessment, and lab work.
+INFERNEX is a Windows- and Linux-oriented cybersecurity command environment for authorized security research, defensive assessment, and lab work.
 
-The executable is **`nex`**. INFERNEX aims to bring original tools and integrated third-party engines behind one consistent entry point while preserving familiar arguments wherever practical.
+The executable is **`nex`**. The goal is to bring original tools and optional third-party engines behind one entry point while preserving familiar upstream arguments wherever practical.
 
-## Project status
+## Current status
 
-INFERNEX is at the foundation stage. The initial core is being built before external engines and advanced modules are added. Do not assume a listed or planned integration is already available.
+The Rust core now includes:
+- An interactive prompt when launched with `nex`.
+- One-shot commands such as `nex help` and `nex nmap -sV <authorized-target>`.
+- A small registry of optional external engine adapters.
+- Engine availability checks through `nex engines check`.
+- Basic theme preference storage (`ember`, `spectrum`, `mono`).
+- Basic environment diagnostics and installation guidance.
+- Initial unit tests and Windows/Linux CI configuration.
 
-## Design principles
+This is an early foundation. External engines are **not bundled or automatically installed**, and the theme system currently saves a preference rather than rendering a fully customizable terminal. The installer, updater, richer configuration, and original security modules remain future work.
 
-- **One entry point:** users launch `nex`.
-- **Familiar syntax:** pass through existing tool flags and arguments rather than forcing experienced users to relearn them.
-- **Original capabilities:** build native INFERNEX tools, not only wrappers.
-- **Consistent experience:** common configuration, logging, help, diagnostics, and output conventions.
-- **Respect upstream projects:** preserve required licenses, notices, trademarks, and source-offer obligations. INFERNEX will not misrepresent third-party software as original work.
-- **Safe by design:** intended for systems, networks, and labs the user owns or is explicitly authorized to assess.
+## Build from source
 
-## Command examples (planned)
+Install the stable Rust toolchain, then run:
 
 ```powershell
+cargo build --release
+cargo test --all-targets
+```
+
+The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
+
+## First commands
+
+```text
+nex
 nex help
-nex version
+nex doctor
+nex engines
+nex engines check
 nex theme list
 nex theme set ember
 nex nmap -sV 192.0.2.10
@@ -31,17 +45,15 @@ nex metasploit
 nex tshark -i 1
 ```
 
-The last three commands require the corresponding external engine to be separately installed and available on PATH. Engine integrations will be introduced and documented individually.
+Engine commands require the corresponding upstream program to be installed and available on PATH. `nex install <engine>` currently provides guidance only; it does not install software automatically.
 
-## Build from source
+## Design principles
 
-Requirements: a current stable Rust toolchain.
-
-```powershell
-cargo build
-cargo run -- help
-cargo test
-```
+- One entry point and consistent core experience.
+- Preserve original tool flags and positional arguments.
+- Build original INFERNEX tools alongside integrations.
+- Respect third-party licenses, notices, and trademarks.
+- Use only on systems and networks you own or are explicitly authorized to assess.
 
 ## Documentation
 
@@ -49,6 +61,4 @@ cargo test
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-## License
-
-The INFERNEX core license will be selected before the first public release. Third-party components retain their own licenses and notices.
+The core license and third-party redistribution policy will be finalized before a public release.
