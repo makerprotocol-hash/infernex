@@ -17,7 +17,8 @@ The Rust core now includes:
 - Basic environment diagnostics and installation guidance.
 - Native system-DNS hostname resolution.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
-- Persistent user-defined command aliases with bounded expansion and no shell evaluation.
+- Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
+- Optional ANSI color suppression through the standard `NO_COLOR` environment variable.
 - Initial unit tests and Windows/Linux CI configuration.
 
 This is an early foundation. External engines are **not bundled or automatically installed**. Themes currently style the interactive prompt; full terminal-wide theming is still future work. The installer, updater, and additional original security modules remain future work.
