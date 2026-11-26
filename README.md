@@ -15,6 +15,7 @@ The Rust core now includes:
 - Engine availability checks through `nex engines check`.
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
 - Expanded read-only environment diagnostics, including platform, config, color, and optional-engine status.
+- Read-only configuration inspection that reports the active theme and alias count without exposing alias values.
 - A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
 - Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, and local IP address classification.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
@@ -41,6 +42,7 @@ The executable is produced as `target/release/nex.exe` on Windows and `target/re
 nex
 nex help
 nex doctor
+nex config show
 nex net resolve example.com
 nex net cidr 192.0.2.17/24
 nex net inspect 192.168.1.10
