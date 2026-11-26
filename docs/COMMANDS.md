@@ -99,3 +99,12 @@ Official installation references:
 - Nmap Linux installation: https://nmap.org/book/inst-linux.html
 - Nmap Windows installation: https://nmap.org/book/inst-windows.html
 - Nmap downloads: https://nmap.org/download.html
+
+Inspect a CIDR range locally without sending network traffic:
+
+```sh
+nex net cidr 192.0.2.17/24
+nex net cidr 2001:db8:abcd::1/48
+```
+
+The command reports the normalized network, mask, first and last addresses, and total address count. For IPv4 it also reports the traditional usable-host count (with /31 and /32 handled as special cases). It does not probe or scan the range.
