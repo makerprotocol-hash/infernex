@@ -72,19 +72,19 @@ fn tokenize(input: &str) -> Result<Vec<String>, &'static str> {
     while let Some(c) = chars.next() {
         if let Some(q) = quote {
             if c == q { quote = None; }
-            else if c == '\\\\' && q == '"' {
+            else if c == '\\' && q == '"' {
                 match chars.peek().copied() {
-                    Some('"') | Some('\\\\') => current.push(chars.next().unwrap()),
+                    Some('"') | Some('\\') => current.push(chars.next().unwrap()),
                     _ => current.push(c),
                 }
             } else { current.push(c); }
             started = true;
-        } else if c == '"' || c == '\\'' {
+        } else if c == '"' || c == '\'' {
             quote = Some(c);
             started = true;
-        } else if c == '\\\\' {
+        } else if c == '\\' {
             match chars.peek().copied() {
-                Some(next) if next.is_whitespace() || next == '"' || next == '\\'' || next == '\\\\' => {
+                Some(next) if next.is_whitespace() || next == '"' || next == '\'' || next == '\\' => {
                     current.push(chars.next().unwrap());
                 }
                 _ => current.push(c),
@@ -231,6 +231,7 @@ mod tests {
     #[test] fn tokenizes_plain_args() { assert_eq!(tokenize("nmap -sV host").unwrap(), vec!["nmap", "-sV", "host"]); }
     #[test] fn tokenizes_quoted_args() { assert_eq!(tokenize("web --url \"https://example.test/a b\"").unwrap(), vec!["web", "--url", "https://example.test/a b"]); }
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
+    #[test] fn preserves_windows_path_backslashes() { assert_eq!(tokenize(r#"hash sha256 C:\Users\Public\file.bin"#).unwrap(), vec!["hash", "sha256", r#"C:\Users\Public\file.bin"#]); }
     #[test] fn metasploit_alias_maps_to_console() { assert!(ENGINES.iter().any(|e| e.name == "metasploit" && e.executable == "msfconsole")); }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
     #[test] fn hashes_file_contents() {
