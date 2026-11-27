@@ -1,24 +1,36 @@
-# Release and installation plan
+# Release and distribution plan
 
-## Release artifacts
+## Current status
 
-The release workflow builds standalone NEX binaries for:
+INFERNEX is under active development. CI and release-build workflows provide build infrastructure; they do not by themselves mean that a stable, supported release or installer is available.
+
+The release workflow is intended to build:
 - Windows x86-64 (MSVC)
 - Linux x86-64 (GNU)
 - Linux ARM64 (GNU)
 
-Artifacts are attached to workflow runs. A tagged release process and signed checksums must be added before recommending downloads to end users.
+Artifacts from workflow runs are build outputs, not automatically published, signed end-user releases.
+
+## Before public distribution
+
+- Finalize the core license and third-party notices.
+- Publish tagged GitHub Releases with clear version notes.
+- Generate and publish cryptographic checksums for every artifact.
+- Establish a signing strategy and verify signatures in documented instructions.
+- Test installation and upgrade paths on supported platforms.
+- Provide uninstall and rollback guidance.
+- Document supported OS versions and known limitations.
 
 ## Installation principles
 
-- Install only from the official INFERNEX GitHub release channel.
-- Verify checksums and, once available, signatures before execution.
-- Never run a downloaded installer with elevated privileges by default.
-- Show the exact third-party package source and proposed package-manager command before installing an engine.
-- Require explicit confirmation for system package changes.
-- Never silently replace an existing third-party installation.
-- Keep INFERNEX core updates separate from external engine updates.
+- Distribute only through the official INFERNEX release channel.
+- Verify checksums and signatures when available.
+- Never require elevated privileges by default.
+- Show package sources and exact commands before system package changes.
+- Require explicit confirmation for privileged installation actions.
+- Never silently replace an existing installation.
+- Keep INFERNEX core updates separate from optional external integrations.
 
-## Current limitation
+## Third-party integrations
 
-The release workflow is infrastructure only. It does not yet publish a GitHub Release or provide a bootstrap installer. The `nex install` command currently displays guidance and does not install external tools.
+Optional compatibility integrations are installed and updated independently. INFERNEX must not silently bundle, replace or update them. Any redistribution requires license and attribution review.
