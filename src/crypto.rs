@@ -1495,3 +1495,17 @@ mod tests {
                 algorithm: HashAlgorithm::Sha512,
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn mixed_algorithm_manifest_accepts_empty_input() {
+        let manifest = HashManifestV2 { entries: Vec::new() };
+        let report = verify_manifest_v2_report(&manifest).unwrap();
+        assert_eq!(report.total, 0);
+        assert_eq!(report.matched, 0);
+        assert_eq!(report.mismatched, 0);
+        assert!(report.checks.is_empty());
+    }
+
+}
