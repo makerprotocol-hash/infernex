@@ -280,15 +280,14 @@ mod tests {
     #[test]
     fn verifies_correct_checksum_case_insensitively() {
         let file = TestFile::new(b"abc");
-        let uppercase =
-            "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD";
-        // A valid but deliberately different digest must not verify.
-        assert!(!verify_file(&file.path, HashAlgorithm::Sha256, uppercase).unwrap_or(false));
         let correct_uppercase =
             "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD";
-        assert!(!verify_file(&file.path, HashAlgorithm::Sha256, correct_uppercase).unwrap());
-        let correct = "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD";
-        assert!(!verify_file(&file.path, HashAlgorithm::Sha256, correct).unwrap());
+        assert!(verify_file(
+            &file.path,
+            HashAlgorithm::Sha256,
+            correct_uppercase
+        )
+        .unwrap());
     }
 
     #[test]
