@@ -126,7 +126,7 @@ fn banner() {
         println!("\x1b[38;5;208m  INFERNEX / NEX\x1b[0m");
         println!("\x1b[38;5;202m  Unified cybersecurity command environment\x1b[0m");
     } else {
-        println!("  INFERNEX / NEX");
+        println!("  INFERNEX / NEX — native-first cybersecurity platform");
         println!("  Unified cybersecurity command environment");
     }
     println!("Version {VERSION}\n");
@@ -144,11 +144,11 @@ fn help() {
     println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
     println!("  hash <sha256|sha512> <file>    Calculate a file digest");
     println!("  hash verify <algorithm> ...   Verify a file digest");
-    println!("  engines [check|info <name>]  List/check/inspect integrations");
-    println!("  install <engine>             Install Nmap (Linux) or show guidance");
+    println!("  engines [check|info <name>]  Inspect optional compatibility integrations");
+    println!("  install <engine>             Install optional Nmap integration or show guidance");
     println!("  theme list|set <name>        Manage terminal theme");
     println!("  alias list|add|remove         Manage safe command aliases");
-    println!("  <engine> [original args...]  Run an integrated engine");
+    println!("  <engine> [original args...]  Run an optional external integration");
     println!("\nExamples:\n  nex nmap -sV 192.0.2.10\n  nex metasploit\n  nex theme set ember");
     println!("\nOnly assess systems and networks you own or are explicitly authorized to test.");
 }
