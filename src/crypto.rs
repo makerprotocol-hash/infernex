@@ -345,6 +345,79 @@ pub fn base64_decode(encoded: &str) -> Result<Vec<u8>, CryptoError> {
     Ok(decoded)
 }
 
+/// Encode arbitrary bytes using the URL-safe Base64 alphabet without padding.
+///
+/// The output uses '-' and '_' instead of '+' and '/', and omits trailing '='.
+/// This is a representation format, not encryption.
+pub fn base64url_encode(data: &[u8]) -> String {
+    base64_encode(data)
+        .trim_end_matches('=')
+        .replace('+', "-")
+        .replace('/', "_")
+}
+
+/// Decode URL-safe Base64 into bytes.
+///
+/// Both padded and unpadded canonical input are accepted. The standard
+/// Base64-only '+' and '/' characters, whitespace, misplaced padding, and
+/// non-zero unused padding bits are rejected.
+pub fn base64url_decode(encoded: &str) -> Result<Vec<u8>, CryptoError> {
+    let input = encoded.as_bytes();
+    let first_padding = input.iter().position(|&byte| byte == b'=');
+    let data_len = first_padding.unwrap_or(input.len());
+
+    if input[..data_len]
+        .iter()
+        .any(|&byte| !byte.is_ascii_alphanumeric() && !matches!(byte, b'-' | b'_'))
+    {
+        let index = input[..data_len]
+            .iter()
+            .position(|&byte| !byte.is_ascii_alphanumeric() && !matches!(byte, b'-' | b'_'))
+            .expect("invalid byte was found");
+        return Err(CryptoError::InvalidBase64 { index });
+    }
+
+    if let Some(index) = first_padding {
+        if input[index..].iter().any(|&byte| byte != b'=')
+            || input.len() % 4 != 0
+            || input.len() - index > 2
+        {
+            return Err(CryptoError::InvalidBase64 { index });
+        }
+    }
+
+    let remainder = data_len % 4;
+    if remainder == 1 {
+        return Err(CryptoError::InvalidBase64 { index: data_len });
+    }
+
+    let expected_padding = match remainder {
+        0 => 0,
+        2 => 2,
+        3 => 1,
+        _ => unreachable!(),
+    };
+    if first_padding.is_some() && input.len() - data_len != expected_padding {
+        return Err(CryptoError::InvalidBase64 {
+            index: data_len,
+        });
+    }
+
+    let mut standard = String::with_capacity(data_len + expected_padding);
+    for &byte in &input[..data_len] {
+        standard.push(match byte {
+            b'-' => '+',
+            b'_' => '/',
+            other => char::from(other),
+        });
+    }
+    for _ in 0..expected_padding {
+        standard.push('=');
+    }
+
+    base64_decode(&standard)
+}
+
 fn base64_value(byte: u8) -> Option<u8> {
     match byte {
         b'A'..=b'Z' => Some(byte - b'A'),
@@ -815,6 +888,36 @@ mod tests {
             percent_decode("ok%2x").unwrap_err(),
             CryptoError::InvalidPercentEncoding { index: 2 }
         ));
+    }
+
+    #[test]
+    fn base64url_matches_rfc4648_url_safe_vectors() {
+        let vectors = [
+            (b"" as &[u8], ""),
+            (b"f", "Zg"),
+            (b"fo", "Zm8"),
+            (b"foo", "Zm9v"),
+            (b"foob", "Zm9vYg"),
+            (b"fooba", "Zm9vYmE"),
+            (b"foobar", "Zm9vYmFy"),
+            (b"\xfb\xff", "-_8"),
+        ];
+        for (plain, encoded) in vectors {
+            assert_eq!(base64url_encode(plain), encoded);
+            assert_eq!(base64url_decode(encoded).unwrap(), plain);
+        }
+    }
+
+    #[test]
+    fn base64url_accepts_canonical_padding_and_rejects_invalid_alphabet() {
+        assert_eq!(base64url_decode("Zg==").unwrap(), b"f");
+        assert_eq!(base64url_decode("Zm8=").unwrap(), b"fo");
+        for invalid in ["Zg=", "Zg===", "Zg==AAAA", "Z+8", "Z/8", "A", "Zh"] {
+            assert!(
+                base64url_decode(invalid).is_err(),
+                "accepted {invalid:?}"
+            );
+        }
     }
 
     #[test]
