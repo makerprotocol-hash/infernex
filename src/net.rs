@@ -105,7 +105,7 @@ pub(crate) fn identify_service_banner(
 
     if matches!(port, 80 | 8000 | 8008 | 8080 | 8081 | 8888) {
         let request = format!(
-            "HEAD / HTTP/1.0\\r\\nHost: {}\\r\\nConnection: close\\r\\n\\r\\n",
+            "HEAD / HTTP/1.0\r\nHost: {}\r\nConnection: close\r\n\r\n",
             address.ip()
         );
         stream.write_all(request.as_bytes())?;
@@ -138,7 +138,7 @@ mod tests {
         let address = listener.local_addr().unwrap();
         let worker = thread::spawn(move || {
             let (mut stream, _) = listener.accept().unwrap();
-            stream.write_all(b"SSH-2.0-INFERNEX-TEST\\r\\n").unwrap();
+            stream.write_all(b"SSH-2.0-INFERNEX-TEST\r\n").unwrap();
         });
         let banner = identify_service_banner(address, address.port(), Duration::from_secs(1), 12).unwrap();
         worker.join().unwrap();
@@ -160,8 +160,8 @@ mod tests {
             let mut request = [0u8; 256];
             let count = stream.read(&mut request).unwrap();
             let request = String::from_utf8_lossy(&request[..count]);
-            assert!(request.starts_with("HEAD / HTTP/1.0\\r\\n"));
-            stream.write_all(b"HTTP/1.0 200 OK\\r\\n\\r\\n").unwrap();
+            assert!(request.starts_with("HEAD / HTTP/1.0\r\n"));
+            stream.write_all(b"HTTP/1.0 200 OK\r\n\r\n").unwrap();
         });
         let banner = identify_service_banner(address, 80, Duration::from_secs(1), 64).unwrap();
         worker.join().unwrap();
@@ -226,10 +226,10 @@ mod tests {
 
     #[test]
     fn service_fingerprinting_uses_banner_not_port_number() {
-        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\\r\\n"), "SSH");
-        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\\r\\n"), "HTTP");
-        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\\r\\n"), "POP3");
-        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\\r\\n"), "SMTP");
+        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\r\n"), "SSH");
+        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\r\n"), "HTTP");
+        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\r\n"), "POP3");
+        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\r\n"), "SMTP");
         assert_eq!(classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
     }
 
