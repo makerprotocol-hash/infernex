@@ -941,7 +941,7 @@ mod tests {
             offset: 0,
         };
         assert_eq!(
-            hash_reader::<Sha256, _>(&mut reader).unwrap(),
+            hash_reader(&mut reader, HashAlgorithm::Sha256).unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
@@ -956,7 +956,7 @@ mod tests {
 
     #[test]
     fn propagates_non_interrupted_read_errors() {
-        let error = hash_reader::<Sha256, _>(&mut FailingReader).unwrap_err();
+        let error = hash_reader(&mut FailingReader, HashAlgorithm::Sha256).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     }
 
