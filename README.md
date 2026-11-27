@@ -20,6 +20,7 @@ INFERNEX is an early, actively developed foundation—not yet a complete securit
 - Offline IPv4/IPv6 CIDR calculations and IP address classification.
 - Single-port TCP connectivity diagnostics.
 - Bounded native TCP connect scanning: one literal IP address and at most 256 consecutive ports per invocation; active TCP checks require the target to be present in the local authorization scope.
+- Native service identification from observed application banners, with a bounded single-port connection and scope enforcement.
 - Persistent authorization scope for exact IPs, IPv4/IPv6 CIDRs and exact hostnames, with deny-by-default checks.
 - Streaming SHA-256 and SHA-512 file hashing and checksum verification.
 
