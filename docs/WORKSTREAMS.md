@@ -107,7 +107,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-02B — route and default-gateway inventory
 
-**Status:** In progress — shared route model and Linux IPv4/IPv6 procfs parsing plus `nex net routes` are implemented on the feature branch. Windows native API adapter and cross-platform completion remain pending. See `docs/NET-02B-ROUTE-INVENTORY.md`.
+**Status:** In progress — shared route model and Linux IPv4/IPv6 procfs parsing plus `nex net routes` are implemented on main. Windows native API adapter and cross-platform completion remain pending. See `docs/NET-02B-ROUTE-INVENTORY.md`.
 
 - Implement read-only IPv4/IPv6 route enumeration for Windows and Linux using reviewed native APIs.
 - Preserve multiple default routes, next hops, interface identifiers and metrics.

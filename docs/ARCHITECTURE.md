@@ -30,7 +30,7 @@ Each native module must:
 
 Active TCP and UDP operations require explicit targets present in the local authorization scope. The scope implementation supports exact IPs, IPv4/IPv6 CIDRs and exact hostnames; it does not infer permission from DNS results, wildcards or subdomains. No silent target discovery, CIDR expansion, stealth, evasion or unbounded scans. Scanner results are observations, not proof of authorization or vulnerability. Distinguish open, refused and inconclusive/no-response states.
 
-The NET-01 extraction is complete: DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification socket orchestration live in `src/net.rs`. CLI wrappers retain output formatting and enforce explicit authorization scope before active operations. Loopback tests cover TCP, UDP, and service identification. Read-only local IPv4/IPv6 interface inventory is available through `nex net interfaces`. The initial Linux-only route inventory is being implemented through `nex net routes`; Windows API support remains a tracked follow-up. These are narrow diagnostics, not broad protocol coverage.
+The NET-01 extraction is complete: DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification socket orchestration live in `src/net.rs`. CLI wrappers retain output formatting and enforce explicit authorization scope before active operations. Loopback tests cover TCP, UDP, and service identification. Read-only local IPv4/IPv6 interface inventory is available through `nex net interfaces`. The initial Linux-only route inventory is available through `nex net routes`; Windows API support remains a tracked follow-up. These are narrow diagnostics, not broad protocol coverage.
 
 ## Cryptography safety
 
