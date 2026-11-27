@@ -11,7 +11,7 @@ Optional adapters may be retained for compatibility, but they are secondary. Nat
 - **CLI/core — `src/main.rs`:** argument parsing, REPL, help, version, config, command routing, current native networking implementation and compatibility adapters. Networking is not yet extracted into a dedicated module.
 - **Native crypto — `src/crypto.rs`:** typed SHA-256/SHA-512 operations, streaming file hashing, checksum verification and module-local tests. Byte-slice hashing helpers are merged. Explicit file-integrity manifest APIs are in open contributor PR #4 and are not yet part of main.
 - **Native scope — `src/scope.rs`:** local authorization inventory, IP/CIDR/hostname matching and fail-closed matching logic.
-- **Native networking — planned `src/net.rs`:** extract networking helpers and commands from the CLI behind a small tested API without weakening scope enforcement or changing established command behavior.
+- **Native networking — `src/net.rs`:** owns pure, side-effect-free networking primitives: TCP port/range validation, service-banner classification, and IPv4/IPv6 private/link-local classification. Active socket operations and CLI wrappers remain in `src/main.rs` for the next extraction step.
 - **Optional compatibility adapters:** separately installed external programs, clearly marked optional and never a dependency for native commands.
 - **Packaging:** Windows/Linux builds, installer, updates and uninstall support.
 
@@ -30,7 +30,7 @@ Each native module must:
 
 Active TCP and UDP operations require explicit targets present in the local authorization scope. The scope implementation supports exact IPs, IPv4/IPv6 CIDRs and exact hostnames; it does not infer permission from DNS results, wildcards or subdomains. No silent target discovery, CIDR expansion, stealth, evasion or unbounded scans. Scanner results are observations, not proof of authorization or vulnerability. Distinguish open, refused and inconclusive/no-response states.
 
-Current network behavior includes system DNS resolution, offline CIDR/IP inspection, single-port TCP connectivity, a bounded TCP connect scanner, bounded banner-based service identification and a one-datagram UDP diagnostic. These are narrow diagnostics, not broad protocol coverage.
+The first modularization step is complete: pure networking primitives and their unit tests now live in `src/net.rs`; command wrappers and active socket operations are still in `src/main.rs`. Current network behavior includes system DNS resolution, offline CIDR/IP inspection, single-port TCP connectivity, a bounded TCP connect scanner, bounded banner-based service identification and a one-datagram UDP diagnostic. These are narrow diagnostics, not broad protocol coverage.
 
 ## Cryptography safety
 
