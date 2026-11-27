@@ -44,7 +44,7 @@ The following are present in the current project baseline; consult the command r
 - [x] Basic banner-based service identification.
 - [x] Single-endpoint UDP diagnostic.
 - [x] Extract networking operations into `src/net.rs` (DNS, TCP connect, UDP exchange, and bounded service identification).
-- [ ] Local interface and route inventory, implemented with reviewed cross-platform APIs.
+- [x] Local IPv4/IPv6 interface address inventory via cross-platform OS APIs.\n- [ ] Route and default-gateway inventory, implemented with reviewed cross-platform APIs.
 - [ ] DNS record queries (A, AAAA, CNAME, MX, TXT, NS, SOA) with timeouts and clear resolver behavior.
 - [ ] Reverse DNS and forward/reverse consistency checks.
 - [ ] IPv4/IPv6 subnet calculations and safe host-range planning.
