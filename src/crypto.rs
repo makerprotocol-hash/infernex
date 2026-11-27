@@ -74,6 +74,8 @@ pub enum CryptoError {
         path: PathBuf,
         source: io::Error,
     },
+    /// Reading a caller-provided stream failed.
+    ReaderIo(io::Error),
     /// A supplied checksum has the wrong number of hexadecimal characters.
     InvalidDigestLength {
         algorithm: HashAlgorithm,
@@ -98,6 +100,7 @@ impl fmt::Display for CryptoError {
             Self::Io { path, source } => {
                 write!(f, "cannot read '{}': {source}", path.display())
             }
+            Self::ReaderIo(source) => write!(f, "cannot read input stream: {source}"),
             Self::InvalidDigestLength {
                 algorithm,
                 expected,
@@ -131,7 +134,7 @@ impl fmt::Display for CryptoError {
 impl std::error::Error for CryptoError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Io { source, .. } => Some(source),
+            Self::Io { source, .. } | Self::ReaderIo(source) => Some(source),
             Self::InvalidDigestLength { .. }
             | Self::InvalidHexCharacter { .. }
             | Self::InvalidHexLength { .. }
@@ -491,6 +494,19 @@ pub fn verify_bytes(
 ) -> Result<bool, CryptoError> {
     validate_digest(algorithm, expected_hex)?;
     let actual = hash_bytes(data, algorithm);
+    Ok(actual.eq_ignore_ascii_case(expected_hex))
+}
+
+/// Verify a stream against an expected hexadecimal digest without buffering it
+/// in full. The reader is consumed until EOF; interrupted reads are retried.
+/// Invalid digests are rejected before the reader is accessed.
+pub fn verify_reader<R: Read>(
+    reader: &mut R,
+    algorithm: HashAlgorithm,
+    expected_hex: &str,
+) -> Result<bool, CryptoError> {
+    validate_digest(algorithm, expected_hex)?;
+    let actual = hash_reader(reader, algorithm).map_err(CryptoError::ReaderIo)?;
     Ok(actual.eq_ignore_ascii_case(expected_hex))
 }
 
@@ -974,6 +990,27 @@ mod tests {
             verify_bytes(b"abc", HashAlgorithm::Sha256, &invalid),
             Err(CryptoError::InvalidHexCharacter { index: 0, byte: b'g' })
         ));
+    }
+
+    #[test]
+    fn verifies_streams_and_propagates_reader_errors() {
+        use std::io::Cursor;
+
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            let expected = hash_bytes(b"stream payload", algorithm);
+            assert!(verify_reader(&mut Cursor::new(b"stream payload"), algorithm, &expected).unwrap());
+            assert!(!verify_reader(&mut Cursor::new(b"modified payload"), algorithm, &expected).unwrap());
+        }
+
+        let error = verify_reader(&mut FailingReader, HashAlgorithm::Sha256, &"0".repeat(64))
+            .unwrap_err();
+        assert!(matches!(error, CryptoError::ReaderIo(ref source) if source.kind() == io::ErrorKind::PermissionDenied));
+    }
+
+    #[test]
+    fn stream_verification_rejects_invalid_digest_before_reading() {
+        let error = verify_reader(&mut FailingReader, HashAlgorithm::Sha256, "bad").unwrap_err();
+        assert!(matches!(error, CryptoError::InvalidDigestLength { .. }));
     }
 
     #[test]
