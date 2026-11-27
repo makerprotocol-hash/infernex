@@ -517,7 +517,7 @@ mod tests {
         assert_eq!(entries.len(), 3);
         assert_eq!(ScopeManager::with_path(&path).list().unwrap(), entries);
         store.remove("LAB.EXAMPLE").unwrap();
-        assert_eq!(store.list().unwrap().len(), 1);
+        assert_eq!(store.list().unwrap().len(), 2);
         assert!(matches!(store.remove("lab.example"), Err(ScopeError::EntryNotFound(_))));
         cleanup(&path);
     }
