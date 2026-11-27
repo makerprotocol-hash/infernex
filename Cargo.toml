@@ -3,7 +3,7 @@ name = "infernex"
 version = "0.1.0"
 edition = "2021"
 description = "Native-first cybersecurity platform and command environment"
-license = "UNLICENSED"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/makerprotocol-hash/infernex"
 
 [[bin]]
