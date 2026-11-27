@@ -86,10 +86,87 @@ pub(crate) fn udp_exchange(destination: std::net::SocketAddr, payload: &[u8], ti
     Ok(response)
 }
 
+
+
+/// Connect to one explicitly authorized endpoint and collect a bounded service banner.
+/// On conventional cleartext HTTP ports, send one minimal HEAD request first.
+pub(crate) fn identify_service_banner(
+    address: std::net::SocketAddr,
+    port: u16,
+    timeout: std::time::Duration,
+    max_banner_bytes: usize,
+) -> std::io::Result<Vec<u8>> {
+    use std::io::{Read, Write};
+    use std::net::TcpStream;
+
+    let mut stream = TcpStream::connect_timeout(&address, timeout)?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+
+    if matches!(port, 80 | 8000 | 8008 | 8080 | 8081 | 8888) {
+        let request = format!(
+            "HEAD / HTTP/1.0\\r\\nHost: {}\\r\\nConnection: close\\r\\n\\r\\n",
+            address.ip()
+        );
+        stream.write_all(request.as_bytes())?;
+    }
+
+    let mut banner = vec![0u8; max_banner_bytes];
+    match stream.read(&mut banner) {
+        Ok(count) => banner.truncate(count),
+        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+            || error.kind() == std::io::ErrorKind::TimedOut => banner.clear(),
+        Err(error) => return Err(error),
+    }
+    Ok(banner)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+
+
+    #[test]
+    fn service_identification_reads_loopback_banner_with_limit() {
+        use std::io::Write;
+        use std::net::TcpListener;
+        use std::thread;
+        use std::time::Duration;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.write_all(b"SSH-2.0-INFERNEX-TEST\\r\\n").unwrap();
+        });
+        let banner = identify_service_banner(address, address.port(), Duration::from_secs(1), 12).unwrap();
+        worker.join().unwrap();
+        assert_eq!(banner, b"SSH-2.0-INFE");
+        assert_eq!(classify_service_banner(address.port(), &banner), "SSH");
+    }
+
+    #[test]
+    fn service_identification_http_probe_is_bounded_and_non_destructive() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::thread;
+        use std::time::Duration;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 256];
+            let count = stream.read(&mut request).unwrap();
+            let request = String::from_utf8_lossy(&request[..count]);
+            assert!(request.starts_with("HEAD / HTTP/1.0\\r\\n"));
+            stream.write_all(b"HTTP/1.0 200 OK\\r\\n\\r\\n").unwrap();
+        });
+        let banner = identify_service_banner(address, 80, Duration::from_secs(1), 64).unwrap();
+        worker.join().unwrap();
+        assert!(banner.starts_with(b"HTTP/1.0 200 OK"));
+    }
 
     #[test]
     fn tcp_connect_works_with_loopback_listener() {
