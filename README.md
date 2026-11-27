@@ -4,42 +4,48 @@
 
 INFERNEX is an all-in-one command-line platform for authorized security research, defensive assessment and lab work. Its executable is `nex`.
 
-Our direction is to build the capabilities ourselves inside this project: networking, cryptography, file integrity, diagnostics and defensive security modules. Native commands must work without separately installed security suites. Optional compatibility adapters may exist, but they are not the product's foundation.
+Our direction is to build capabilities inside this repository: networking, cryptography, file integrity, diagnostics and defensive security modules. Optional compatibility adapters may exist, but native commands must not depend on separately installed security suites.
 
 ## Project status
 
-INFERNEX is an early, actively developed foundation—not yet a complete security suite.
+INFERNEX is an early, actively developed foundation—not yet a complete security suite or a replacement for mature specialist tools.
 
-### Native capabilities currently implemented
+### Implemented native capabilities
 
 - Interactive command prompt and one-shot CLI.
-- Persistent aliases with bounded expansion and argument-preserving behavior.
+- Persistent aliases, quote-aware command parsing and bounded alias expansion.
 - Prompt themes and `NO_COLOR` support.
 - Read-only configuration and environment diagnostics.
 - System DNS hostname resolution.
 - Offline IPv4/IPv6 CIDR calculations and IP address classification.
 - Single-port TCP connectivity diagnostics.
-- Bounded native TCP connect scanning: one literal IP address and at most 256 consecutive ports per invocation; active TCP checks require the target to be present in the local authorization scope.
-- Native service identification from observed application banners, with a bounded single-port connection and scope enforcement.
-- Persistent authorization scope for exact IPs, IPv4/IPv6 CIDRs and exact hostnames, with deny-by-default checks.
+- Bounded native TCP connect scanning: one literal IP and at most 256 consecutive ports per invocation.
+- Native service identification from observed application banners, with bounded reads and scope enforcement.
+- One-endpoint native UDP diagnostic: one fixed datagram, bounded response and timeout; no response is inconclusive.
+- Persistent authorization scope for exact IPs, IPv4/IPv6 CIDRs and exact hostnames, with deny-by-default checks for active network operations.
 - Streaming SHA-256 and SHA-512 file hashing and checksum verification.
 
-### In development / planned
+### In progress
 
-- Native networking module and protocol-aware service identification.
-- User-maintained authorization scope and asset inventory.
-- Native cryptography module expansion, including a reviewed authenticated file-encryption design.
-- Unified structured output and additional defensive modules.
-- Packaging, installer and update workflow.
+- Extract networking implementation from the CLI into a dedicated, independently tested `src/net.rs`.
+- Expand native crypto and file-integrity APIs, including byte-slice hashing and explicit file manifests under review/integration.
+- Improve network inventory, DNS diagnostics and structured output.
+- Design authenticated file encryption separately; no encryption command is implemented yet.
 
-A planned feature is not an implemented feature. See the command reference for what works today.
+### Planned
+
+- Reviewed authenticated file encryption/decryption using established cryptography.
+- Additional native defensive diagnostics and protocol modules.
+- Packaging, installer, update and uninstall workflows.
+
+A roadmap item is not an implemented feature. See [the command reference](docs/COMMANDS.md) for current behavior.
 
 ## Native-first principles
 
 - Implement core capabilities in this repository; do not require Nmap, Metasploit, Wireshark, SQLmap or other external security programs for native commands.
 - Prefer small, independently testable Rust modules with documented APIs.
 - Validate inputs and use bounded memory, timeouts and resource limits.
-- Make active network operations explicit and scope-aware.
+- Make active network operations explicit and authorization-scope-aware.
 - Use established cryptographic constructions; never invent ciphers.
 - Support Windows and Linux, documenting platform limitations.
 - Do not claim parity with mature security suites without evidence.
@@ -49,12 +55,11 @@ A planned feature is not an implemented feature. See the command reference for w
 Install the stable Rust toolchain, then run:
 
 ```sh
-cargo fmt --check
 cargo test --all-targets
 cargo build --release
 ```
 
-The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
+Run `cargo fmt --check` after formatting the touched Rust files. The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
 
 ## Native commands
 
@@ -64,21 +69,25 @@ nex help
 nex version
 nex doctor
 nex config show
+nex scope add 192.0.2.10
+nex scope list
+nex scope check 192.0.2.10
 nex net resolve example.com
 nex net cidr 192.0.2.17/24
-nex net inspect 192.168.1.10
-nex net port example.com 443
+nex net inspect 192.0.2.10
+nex net port 192.0.2.10 443
 nex net scan 192.0.2.10 1 128
+nex net service 192.0.2.10 22
+nex net udp 192.0.2.10 53
 nex hash sha256 ./download.zip
 nex hash sha512 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
 nex hash verify sha512 ./download.zip <expected-128-character-hex>
 nex theme list
-nex theme set ember
 nex alias list
 ```
 
-The TCP scanner is a straightforward connect scanner, not a stealth scanner. It accepts one literal IP address (not a hostname or CIDR), scans at most 256 ports per invocation and reports inconclusive connection outcomes distinctly. Only use network features against systems you own or are explicitly authorized to assess.
+Active network commands require targets recorded in the local authorization scope. The scope inventory is a user-maintained record, not proof of legal permission. The TCP scanner is a straightforward connect scanner, not a stealth scanner. It accepts one literal IP address (not a hostname or CIDR), scans at most 256 ports per invocation and reports inconclusive connection outcomes distinctly. The UDP diagnostic sends one fixed datagram to one explicitly selected endpoint; it is not a UDP scanner. Only use network features against systems you own or are explicitly authorized to assess.
 
 ## Optional compatibility integrations
 
@@ -90,7 +99,7 @@ We do not claim third-party functionality as our own. Any future bundling or mod
 
 - [Command reference](docs/COMMANDS.md)
 - [Architecture and native module boundaries](docs/ARCHITECTURE.md)
-- [Parallel engineering workstreams](docs/WORKSTREAMS.md)
+- [Parallel engineering workstreams and contributor task cards](docs/WORKSTREAMS.md)
 - [Release and installation plan](docs/RELEASES.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
