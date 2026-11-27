@@ -62,7 +62,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-02A — local interface inventory
 
-**Status:** In progress — read-only IPv4/IPv6 interface address inventory is implemented with the cross-platform `if-addrs` OS API wrapper; route/default-gateway inventory remains separate.
+**Status:** Complete — read-only IPv4/IPv6 interface address inventory is implemented with the cross-platform `if-addrs` OS API wrapper. Route/default-gateway inventory is tracked separately as NET-02B.
 
 - Enumerate local IPv4 and IPv6 addresses, prefixes, netmasks, and available broadcast addresses.
 - Keep the command read-only; do not change interface state or send packets.
@@ -97,7 +97,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-01 — extract native networking module
 
-**Owner:** Core maintainer. **Status:** Next integration task.
+**Owner:** Core maintainer. **Status:** Complete — pure primitives and bounded DNS/TCP/UDP/service-identification operations are in `src/net.rs`.
 
 - Move networking parsing, pure helpers and command logic from `src/main.rs` into `src/net.rs` incrementally.
 - Preserve command names, output meaning, timeouts, input limits and authorization checks.
@@ -105,14 +105,14 @@ Give the agent one task card from this file. Include these operating rules in it
 - Add module-local tests for port/range parsing, CIDR helpers and service banner classification.
 - Do not add dependencies for the initial extraction.
 
-### NET-02 — local interface inventory
+### NET-02B — route and default-gateway inventory
 
-**Status:** Planned.
+**Status:** Design proposal merged; implementation has not started. See `docs/NET-02B-ROUTE-INVENTORY.md`.
 
-- Implement read-only local interface enumeration for Windows and Linux.
-- Do not transmit packets or require elevated privileges.
-- Report interface name, address, prefix/netmask and up/down state where portable.
-- Document fields unavailable on a platform; test parsers independently.
+- Implement read-only IPv4/IPv6 route enumeration for Windows and Linux using reviewed native APIs.
+- Preserve multiple default routes, next hops, interface identifiers and metrics.
+- Do not transmit packets, modify routes, or infer authorization scope from discovered routes.
+- Review exact dependencies/FFI and platform behavior before implementation.
 
 ### NET-03 — DNS record diagnostics
 
