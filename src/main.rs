@@ -142,8 +142,8 @@ fn help() {
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
     println!("  net port <host> <port>         Test one TCP destination port");
     println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
-    println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
-    println!("  hash verify sha256 <file> <expected>  Verify a file digest");
+    println!("  hash <sha256|sha512> <file>    Calculate a file digest");
+    println!("  hash verify <algorithm> ...   Verify a file digest");
     println!("  engines [check|info <name>]  List/check/inspect integrations");
     println!("  install <engine>             Install Nmap (Linux) or show guidance");
     println!("  theme list|set <name>        Manage terminal theme");
