@@ -13,7 +13,7 @@ The examples below assume the INFERNEX executable is installed as `nex`.
 | `nex config show` | Show configuration location, theme, and alias count |
 | `nex config path` | Print the configuration file path |
 | `nex engines` | List optional integrations |
-| `nex engines check` | Check whether integration executables are on PATH |
+| `nex engines check` | Check whether integration executables are discoverable (PATH and standard Windows Nmap locations) |
 | `nex engines info <engine>` | Show an integration's details and availability |
 | `nex theme list` | List available prompt themes |
 | `nex theme set ember` | Save and apply a prompt theme |
@@ -44,6 +44,14 @@ Resolve a hostname through the system-configured DNS resolver:
 ```sh
 nex net resolve example.com
 ```
+
+Test one explicitly selected TCP port with a bounded two-second connection timeout per resolved address:
+
+```sh
+nex net port example.com 443
+```
+
+This is a single-port connectivity check, not a range scan. Use it only against systems you own or are authorized to test. A failed connection does not prove that a service is absent; firewalls and routing can also block it.
 
 ## Optional external engines
 
