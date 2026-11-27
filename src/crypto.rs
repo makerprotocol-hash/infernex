@@ -479,6 +479,21 @@ pub fn verify_file<P: AsRef<Path>>(
     Ok(actual.eq_ignore_ascii_case(expected_hex))
 }
 
+/// Verify an in-memory byte slice against an expected hexadecimal digest.
+///
+/// The expected digest must contain exactly the correct number of ASCII
+/// hexadecimal characters. Letter case is ignored. Returns `Ok(true)` for a
+/// match and `Ok(false)` for a well-formed but incorrect digest.
+pub fn verify_bytes(
+    data: &[u8],
+    algorithm: HashAlgorithm,
+    expected_hex: &str,
+) -> Result<bool, CryptoError> {
+    validate_digest(algorithm, expected_hex)?;
+    let actual = hash_bytes(data, algorithm);
+    Ok(actual.eq_ignore_ascii_case(expected_hex))
+}
+
 fn validate_digest(
     algorithm: HashAlgorithm,
     expected_hex: &str,
@@ -924,6 +939,41 @@ mod tests {
             "0000000000000000000000000000000000000000000000000000000000000000";
         assert!(!verify_file(&file.path, HashAlgorithm::Sha256, incorrect).unwrap());
         assert!(verify_file(&file.path, HashAlgorithm::Sha256, &actual.to_uppercase()).unwrap());
+    }
+
+    #[test]
+    fn verifies_byte_slices_with_valid_and_invalid_digests() {
+        let expected = hash_bytes(b"abc", HashAlgorithm::Sha256);
+        assert!(verify_bytes(b"abc", HashAlgorithm::Sha256, &expected).unwrap());
+        assert!(verify_bytes(
+            b"abc",
+            HashAlgorithm::Sha256,
+            &expected.to_uppercase()
+        )
+        .unwrap());
+        assert!(!verify_bytes(
+            b"abd",
+            HashAlgorithm::Sha256,
+            &expected
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn byte_slice_verification_rejects_malformed_digests() {
+        assert!(matches!(
+            verify_bytes(b"abc", HashAlgorithm::Sha256, "abcd"),
+            Err(CryptoError::InvalidDigestLength {
+                algorithm: HashAlgorithm::Sha256,
+                expected: 64,
+                actual: 4
+            })
+        ));
+        let invalid = "g".to_owned() + &"0".repeat(63);
+        assert!(matches!(
+            verify_bytes(b"abc", HashAlgorithm::Sha256, &invalid),
+            Err(CryptoError::InvalidHexCharacter { index: 0, byte: b'g' })
+        ));
     }
 
     #[test]
