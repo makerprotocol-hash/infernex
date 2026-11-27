@@ -1,0 +1,356 @@
+//! Native file hashing and checksum verification for INFERNEX.
+//!
+//! This module deliberately provides hashing only. Authenticated encryption is
+//! being designed separately and will not be implemented with homemade crypto.
+//! File contents are read in fixed-size chunks, so memory use is independent of
+//! the size of the input file.
+
+use sha2::{Digest, Sha256, Sha512};
+use std::fmt;
+use std::fs::File;
+use std::io::{self, Read};
+use std::path::{Path, PathBuf};
+
+/// Maximum amount of file data held in memory while hashing.
+pub const HASH_BUFFER_SIZE: usize = 64 * 1024;
+
+/// Hash algorithm supported by the native INFERNEX file-integrity module.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashAlgorithm {
+    Sha256,
+    Sha512,
+}
+
+impl HashAlgorithm {
+    /// Number of hexadecimal characters in this algorithm's digest.
+    pub const fn hex_len(self) -> usize {
+        match self {
+            Self::Sha256 => 64,
+            Self::Sha512 => 128,
+        }
+    }
+
+    /// Canonical lowercase algorithm name.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Sha256 => "sha256",
+            Self::Sha512 => "sha512",
+        }
+    }
+}
+
+impl fmt::Display for HashAlgorithm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Errors returned by file hashing and checksum verification.
+#[derive(Debug)]
+pub enum CryptoError {
+    /// Opening or reading the requested file failed.
+    Io {
+        path: PathBuf,
+        source: io::Error,
+    },
+    /// A supplied checksum has the wrong number of hexadecimal characters.
+    InvalidDigestLength {
+        algorithm: HashAlgorithm,
+        expected: usize,
+        actual: usize,
+    },
+    /// A supplied checksum contains a non-ASCII-hexadecimal byte.
+    InvalidHexCharacter { index: usize, byte: u8 },
+}
+
+impl fmt::Display for CryptoError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io { path, source } => {
+                write!(f, "cannot read '{}': {source}", path.display())
+            }
+            Self::InvalidDigestLength {
+                algorithm,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "invalid {algorithm} digest length: expected {expected} hexadecimal characters, got {actual}"
+            ),
+            Self::InvalidHexCharacter { index, byte } => write!(
+                f,
+                "invalid hexadecimal character at byte {index}: 0x{byte:02x}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CryptoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io { source, .. } => Some(source),
+            Self::InvalidDigestLength { .. } | Self::InvalidHexCharacter { .. } => None,
+        }
+    }
+}
+
+/// Hash a file with SHA-256 or SHA-512 and return a lowercase hexadecimal digest.
+///
+/// Reads the file incrementally using a fixed 64 KiB buffer. The file is never
+/// loaded into memory in its entirety.
+pub fn hash_file<P: AsRef<Path>>(
+    path: P,
+    algorithm: HashAlgorithm,
+) -> Result<String, CryptoError> {
+    let path = path.as_ref();
+    let mut file = File::open(path).map_err(|source| CryptoError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    match algorithm {
+        HashAlgorithm::Sha256 => hash_reader::<Sha256, _>(&mut file).map_err(|source| {
+            CryptoError::Io {
+                path: path.to_path_buf(),
+                source,
+            }
+        }),
+        HashAlgorithm::Sha512 => hash_reader::<Sha512, _>(&mut file).map_err(|source| {
+            CryptoError::Io {
+                path: path.to_path_buf(),
+                source,
+            }
+        }),
+    }
+}
+
+/// Verify a file against an expected hexadecimal digest.
+///
+/// The expected digest must contain exactly the correct number of ASCII
+/// hexadecimal characters. Letter case is ignored. Returns `Ok(true)` for a
+/// match and `Ok(false)` for a well-formed but incorrect digest.
+pub fn verify_file<P: AsRef<Path>>(
+    path: P,
+    algorithm: HashAlgorithm,
+    expected_hex: &str,
+) -> Result<bool, CryptoError> {
+    validate_digest(algorithm, expected_hex)?;
+    let actual = hash_file(path, algorithm)?;
+    Ok(actual.eq_ignore_ascii_case(expected_hex))
+}
+
+fn validate_digest(
+    algorithm: HashAlgorithm,
+    expected_hex: &str,
+) -> Result<(), CryptoError> {
+    if expected_hex.len() != algorithm.hex_len() {
+        return Err(CryptoError::InvalidDigestLength {
+            algorithm,
+            expected: algorithm.hex_len(),
+            actual: expected_hex.len(),
+        });
+    }
+
+    for (index, byte) in expected_hex.bytes().enumerate() {
+        if !byte.is_ascii_hexdigit() {
+            return Err(CryptoError::InvalidHexCharacter { index, byte });
+        }
+    }
+
+    Ok(())
+}
+
+fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<String> {
+    let mut hasher = D::default();
+    let mut buffer = [0u8; HASH_BUFFER_SIZE];
+
+    loop {
+        match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => hasher.update(&buffer[..count]),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error),
+        }
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
+
+    struct TestFile {
+        directory: PathBuf,
+        path: PathBuf,
+    }
+
+    impl TestFile {
+        fn new(contents: &[u8]) -> Self {
+            let id = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
+            let directory = std::env::temp_dir().join(format!(
+                "infernex-crypto-test-{}-{id}",
+                std::process::id()
+            ));
+            fs::create_dir(&directory).expect("create temporary test directory");
+            let path = directory.join("fixture.bin");
+            fs::write(&path, contents).expect("write temporary test file");
+            Self { directory, path }
+        }
+    }
+
+    impl Drop for TestFile {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    #[test]
+    fn sha256_known_vector_abc() {
+        let file = TestFile::new(b"abc");
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn sha512_known_vector_abc() {
+        let file = TestFile::new(b"abc");
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
+            "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        );
+    }
+
+    #[test]
+    fn sha256_empty_file_vector() {
+        let file = TestFile::new(b"");
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn sha512_empty_file_vector() {
+        let file = TestFile::new(b"");
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
+            "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce"
+                .to_owned()
+                + "47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"
+        );
+    }
+
+    #[test]
+    fn hashes_binary_data() {
+        let bytes = [0, 0xff, 0x80, b'\n', 0x7f, 0, 42];
+        let file = TestFile::new(&bytes);
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
+            format!("{:x}", Sha256::digest(bytes))
+        );
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
+            format!("{:x}", Sha512::digest(bytes))
+        );
+    }
+
+    #[test]
+    fn streams_files_larger_than_the_buffer() {
+        let bytes: Vec<u8> = (0..(HASH_BUFFER_SIZE * 3 + 137))
+            .map(|index| (index % 251) as u8)
+            .collect();
+        let file = TestFile::new(&bytes);
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
+            format!("{:x}", Sha256::digest(&bytes))
+        );
+        assert_eq!(
+            hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
+            format!("{:x}", Sha512::digest(&bytes))
+        );
+    }
+
+    #[test]
+    fn verifies_correct_checksum_case_insensitively() {
+        let file = TestFile::new(b"abc");
+        let correct_uppercase =
+            "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD";
+        assert!(verify_file(
+            &file.path,
+            HashAlgorithm::Sha256,
+            correct_uppercase
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn verifies_correct_and_incorrect_digests() {
+        let file = TestFile::new(b"abc");
+        let correct =
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        let actual =
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(correct, actual);
+        assert!(verify_file(&file.path, HashAlgorithm::Sha256, actual).unwrap());
+        let incorrect =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+        assert!(!verify_file(&file.path, HashAlgorithm::Sha256, incorrect).unwrap());
+        assert!(verify_file(&file.path, HashAlgorithm::Sha256, &actual.to_uppercase()).unwrap());
+    }
+
+    #[test]
+    fn rejects_invalid_digest_length() {
+        let file = TestFile::new(b"abc");
+        let error = verify_file(&file.path, HashAlgorithm::Sha256, "abcd").unwrap_err();
+        assert!(matches!(
+            error,
+            CryptoError::InvalidDigestLength {
+                algorithm: HashAlgorithm::Sha256,
+                expected: 64,
+                actual: 4
+            }
+        ));
+    }
+
+    #[test]
+    fn rejects_non_hexadecimal_digest() {
+        let file = TestFile::new(b"abc");
+        let invalid = "g".to_owned() + &"0".repeat(63);
+        let error =
+            verify_file(&file.path, HashAlgorithm::Sha256, &invalid).unwrap_err();
+        assert!(matches!(
+            error,
+            CryptoError::InvalidHexCharacter { index: 0, byte: b'g' }
+        ));
+    }
+
+    #[test]
+    fn validates_digest_before_opening_file() {
+        let missing = std::env::temp_dir().join("infernex-definitely-missing-crypto-file");
+        let error = verify_file(&missing, HashAlgorithm::Sha256, "not-a-digest").unwrap_err();
+        assert!(matches!(error, CryptoError::InvalidDigestLength { .. }));
+    }
+
+    #[test]
+    fn reports_missing_file_with_path() {
+        let missing = std::env::temp_dir().join(format!(
+            "infernex-missing-crypto-{}",
+            NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        let error = hash_file(&missing, HashAlgorithm::Sha256).unwrap_err();
+        match error {
+            CryptoError::Io { path, source } => {
+                assert_eq!(path, missing);
+                assert_eq!(source.kind(), io::ErrorKind::NotFound);
+            }
+            other => panic!("expected I/O error, got {other}"),
+        }
+    }
+}
