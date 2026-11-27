@@ -11,5 +11,5 @@ name = "nex"
 path = "src/main.rs"
 
 [dependencies]
-sha2 = "0.10"
+sha2 = "0.11"
 if-addrs = "0.14"
