@@ -60,7 +60,13 @@ Give the agent one task card from this file. Include these operating rules in it
 - Preserve current limits, timeouts, and command behavior; add loopback integration tests before removing old wrappers.
 - Current extraction adds TCP/UDP loopback coverage and rejects URL/path input before DNS lookup.
 
+### NET-02A — local interface inventory
 
+**Status:** In progress — read-only IPv4/IPv6 interface address inventory is implemented with the cross-platform `if-addrs` OS API wrapper; route/default-gateway inventory remains separate.
+
+- Enumerate local IPv4 and IPv6 addresses, prefixes, netmasks, and available broadcast addresses.
+- Keep the command read-only; do not change interface state or send packets.
+- Follow with route/default-gateway inventory using a reviewed cross-platform API.
 
 ### CRYPTO-03 — byte-slice digest helper
 
