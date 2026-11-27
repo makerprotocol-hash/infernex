@@ -17,9 +17,12 @@ Optional adapters may be retained for compatibility, but they are secondary. Nat
 
 ## Module ownership
 
-- Core maintainer: `src/main.rs`, `src/net.rs`, CLI integration, dependency manifests and release infrastructure.
-- Parallel crypto contributor: `src/crypto.rs`, module-local tests and a pull request. The contributor must not edit the CLI or Cargo manifests.
-- Integrate modules through reviewed public APIs; avoid concurrent edits to the same files.
+- Core/CLI: `src/main.rs` currently owns command routing and REPL behavior; split it into focused modules incrementally.
+- Native crypto: `src/crypto.rs` owns streaming SHA-256/SHA-512 hashing and checksum verification, exposed through a small typed API and module-local tests.
+- Native scope: `src/scope.rs` owns the local authorization inventory and fail-closed matching logic.
+- Native networking: extract the current networking implementation from the CLI into `src/net.rs` without weakening scope checks or changing established command behavior.
+- Coordinate parallel contributors by assigning separate modules/branches; do not let multiple contributors edit the same integration files concurrently.
+- Integrate modules through reviewed public APIs and keep dependency changes explicit.
 
 ## Native module contracts
 
