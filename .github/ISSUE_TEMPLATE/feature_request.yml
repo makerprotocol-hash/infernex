@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a focused improvement or roadmap item
+title: "feature: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "INFERNEX prioritizes native, bounded, testable capabilities and authorized defensive use."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe expected inputs, outputs and limits.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and security considerations
+      description: Consider authorization, privacy, resource limits and failure behavior.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
