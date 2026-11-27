@@ -1,11 +1,11 @@
 # INFERNEX
 
 <p align="center">
-  <img src="assets/infernex-banner.svg" alt="INFERNEX native cybersecurity platform banner" width="100%" />
+  <img src="assets/Infernex_%20Portal%20of%20Cybersecurity.png" alt="INFERNEX official fiery portal banner" width="100%" />
 </p>
 
 <p align="center">
-  <img src="assets/infernex-logo.svg" alt="INFERNEX signature red-orange X logo" width="180" />
+  <img src="assets/Fiery%20Cyberpunk%20X%20Emblem.png" alt="INFERNEX official red-orange X emblem" width="180" />
 </p>
 
 **A native-first cybersecurity command environment. One terminal. Independent engines. Built in Rust.**
@@ -60,7 +60,7 @@ A roadmap item is not an implemented feature. See [the command reference](docs/C
 
 ## Brand identity
 
-The angular red-orange **X** is the official INFERNEX mark. The banner and standalone logo in `assets/` use this signature mark and the project palette.
+The angular red-orange **X** is the official INFERNEX mark. The official PNG emblem and portal banner are stored in `assets/`; the SVG logo and banner remain available as lightweight vector alternatives.
 
 ## Active roadmap
 
