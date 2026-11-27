@@ -43,6 +43,24 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ## Active contributor task cards
 
+### NET-01A — extract pure networking primitives
+
+**Status:** Implemented on main in commits `7025925` and `4f30748`.
+
+- Added `src/net.rs` for TCP port/range validation, banner classification, and IP range classification.
+- Moved the associated unit tests into the networking module.
+- CLI behavior and active network operations remain in `src/main.rs`; this is the first incremental extraction, not completion of NET-01.
+
+### NET-01B — extract network command operations
+
+**Status:** Next maintainer task.
+
+- Move DNS, TCP, UDP, and service-identification operations behind typed functions in `src/net.rs`.
+- Keep CLI output and authorization-scope checks at the command boundary or pass an explicit authorization decision into the engine.
+- Preserve current limits, timeouts, and command behavior; add loopback integration tests before removing old wrappers.
+
+
+
 ### CRYPTO-03 — byte-slice digest helper
 
 **Status:** Merged to main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module.
