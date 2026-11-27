@@ -52,6 +52,7 @@ fn dispatch_with_aliases(args: &[String], depth: usize) -> ExitCode {
         "help" | "--help" | "-h" => { banner(); help(); ExitCode::SUCCESS }
         "version" | "--version" | "-V" => { println!("INFERNEX (nex) {VERSION}"); ExitCode::SUCCESS }
         "doctor" => doctor(),
+        "roadmap" => roadmap_command(&args[1..]),
         "config" => config_command(&args[1..]),
         "hash" => hash_command(&args[1..]),
         "net" => net_command(&args[1..]),
@@ -128,19 +129,69 @@ fn tokenize(input: &str) -> Result<Vec<String>, &'static str> {
 }
 fn banner() {
     if colors_enabled() {
-        println!("\x1b[38;5;208m  INFERNEX / NEX\x1b[0m");
-        println!("\x1b[38;5;202m  Unified cybersecurity command environment\x1b[0m");
+        println!("\x1b[38;5;208m       .-=================-.\x1b[0m");
+        println!("\x1b[38;5;202m     .'   .:::::::::::.   '.\x1b[0m");
+        println!("\x1b[38;5;196m    /   .::  \x1b[38;5;208mINFERNEX\x1b[38;5;196m  ::.   \\\x1b[0m");
+        println!("\x1b[38;5;202m   |   ::   \x1b[38;5;214mNATIVE CORE\x1b[38;5;202m   ::   |\x1b[0m");
+        println!("\x1b[38;5;208m    \\   '::.         .::'   /\x1b[0m");
+        println!("\x1b[38;5;202m     '.    ':::::::::'    .'\x1b[0m");
+        println!("\x1b[38;5;208m       '-=================-'\x1b[0m");
+        println!("\x1b[38;5;202m  ONE TERMINAL. INDEPENDENT ENGINES. BUILT IN RUST.\x1b[0m");
     } else {
-        println!("  INFERNEX / NEX — native-first cybersecurity platform");
-        println!("  Native-first cybersecurity platform");
+        println!("       .-=================-.");
+        println!("     .'   .:::::::::::.   '.");
+        println!("    /   .::  INFERNEX  ::.   \\");
+        println!("   |   ::   NATIVE CORE   ::   |");
+        println!("    \\   '::.         .::'   /");
+        println!("     '.    ':::::::::'    .'");
+        println!("       '-=================-'");
+        println!("  ONE TERMINAL. INDEPENDENT ENGINES. BUILT IN RUST.");
     }
-    println!("Version {VERSION}\n");
+    println!("  Version {VERSION}  |  Type 'roadmap' to view active build stages\n");
+}
+
+fn roadmap_command(args: &[String]) -> ExitCode {
+    match args {
+        [] | [action] if args.is_empty() || action == "next" => {
+            println!("INFERNEX — ACTIVE BUILD ROADMAP");
+            println!("Vision: native-first networking, cryptography, assessment and research engines.");
+            println!("\nDELIVERY STAGES");
+            println!("  [IN PROGRESS] M0  Reliable core and contribution workflow");
+            println!("  [IN PROGRESS] M1  Modular native engine architecture");
+            println!("  [PLANNED]     M2  Native network diagnostics (DNS, TLS, HTTP, protocols)");
+            println!("  [PLANNED]     M3  Crypto and file-integrity toolkit");
+            println!("  [PLANNED]     M4  Vulnerability assessment and findings");
+            println!("  [PLANNED]     M5  Web and API security assessment");
+            println!("  [PLANNED]     M6  Host and endpoint security");
+            println!("  [PLANNED]     M7  Forensics and traffic analysis");
+            println!("  [PLANNED]     M8  Reverse engineering and defensive triage");
+            println!("  [PLANNED]     M9  Cloud, identity and supply-chain security");
+            println!("  [PLANNED]     M10 Research labs, fuzzing and safe validation");
+            println!("  [PLANNED]     M11 Stable all-in-one release");
+            println!("\nCURRENT FOCUS");
+            println!("  1. Finish extracting DNS/TCP/UDP operations from the CLI.");
+            println!("  2. Add interface and route inventory.");
+            println!("  3. Expand DNS, then TLS and HTTP inspection.");
+            println!("\nRun 'nex roadmap show' for the complete roadmap and task queue.");
+            println!("Roadmap statuses are targets, not claims that planned engines already exist.");
+            ExitCode::SUCCESS
+        }
+        [action] if action == "show" => {
+            print!("{}", include_str!("../docs/ROADMAP.md"));
+            ExitCode::SUCCESS
+        }
+        _ => {
+            eprintln!("Usage: nex roadmap [next|show]");
+            ExitCode::from(2)
+        }
+    }
 }
 fn help() {
     println!("Usage: nex <command> [arguments]");
     println!("  help                         Show help");
     println!("  version                      Show version");
     println!("  doctor                       Check basic environment");
+    println!("  roadmap [show|next]           View the active INFERNEX build roadmap");
     println!("  config show|path             Inspect INFERNEX configuration");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
@@ -821,7 +872,7 @@ fn valid_alias_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 fn is_builtin_command(name: &str) -> bool {
-    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "config" | "scope" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
+    matches!(name, "help" | "version" | "doctor" | "roadmap" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "config" | "scope" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
 }
 fn remove_config_value(path: &std::path::Path, key: &str) -> io::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
