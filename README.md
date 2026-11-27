@@ -1,5 +1,13 @@
 # INFERNEX
 
+<p align="center">
+  <img src="assets/infernex-banner.svg" alt="INFERNEX native cybersecurity platform banner" width="100%" />
+</p>
+
+<p align="center">
+  <img src="assets/infernex-logo.svg" alt="INFERNEX portal emblem" width="180" />
+</p>
+
 **A native cybersecurity platform. One command environment. Built in Rust.**
 
 INFERNEX is an all-in-one command-line platform for authorized security research, defensive assessment and lab work. Its executable is `nex`.
@@ -49,6 +57,10 @@ A roadmap item is not an implemented feature. See [the command reference](docs/C
 - Use established cryptographic constructions; never invent ciphers.
 - Support Windows and Linux, documenting platform limitations.
 - Do not claim parity with mature security suites without evidence.
+
+## Active roadmap
+
+The roadmap is part of the product, not just a planning document. Run `nex roadmap` in the terminal for current delivery stages, or `nex roadmap show` for the complete master plan. The active roadmap is also maintained in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Build from source
 
