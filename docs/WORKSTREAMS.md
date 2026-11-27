@@ -53,7 +53,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-01B — extract network command operations
 
-**Status:** In progress — DNS resolution, bounded TCP connect, and one-datagram UDP exchange are delegated to `src/net.rs`; service-identification orchestration remains to be extracted.
+**Status:** Complete — DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification orchestration are delegated to `src/net.rs`.
 
 - Move DNS, TCP, UDP, and service-identification operations behind typed functions in `src/net.rs`.
 - Keep CLI output and authorization-scope checks at the command boundary or pass an explicit authorization decision into the engine.

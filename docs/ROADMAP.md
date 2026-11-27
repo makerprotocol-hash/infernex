@@ -43,7 +43,7 @@ The following are present in the current project baseline; consult the command r
 - [x] Single-target TCP port check.
 - [x] Basic banner-based service identification.
 - [x] Single-endpoint UDP diagnostic.
-- [ ] Complete extraction of networking operations into `src/net.rs` (DNS, TCP connect, and UDP exchange APIs extracted; service-identification orchestration remains).
+- [x] Extract networking operations into `src/net.rs` (DNS, TCP connect, UDP exchange, and bounded service identification).
 - [ ] Local interface and route inventory, implemented with reviewed cross-platform APIs.
 - [ ] DNS record queries (A, AAAA, CNAME, MX, TXT, NS, SOA) with timeouts and clear resolver behavior.
 - [ ] Reverse DNS and forward/reverse consistency checks.
