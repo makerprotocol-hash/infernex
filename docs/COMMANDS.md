@@ -4,6 +4,13 @@ The examples below assume the executable is named `nex`. This page lists command
 
 ## Core commands
 
+### Roadmap
+
+- `nex roadmap` — show active delivery stages and current engineering focus.
+- `nex roadmap next` — show the current focus and stage overview.
+- `nex roadmap show` — print the complete master roadmap embedded at build time.
+
+
 | Command | Purpose |
 |---|---|
 | `nex` | Open the interactive prompt |
