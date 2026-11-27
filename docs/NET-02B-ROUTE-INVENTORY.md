@@ -1,6 +1,6 @@
 # NET-02B — Route and default-gateway inventory
 
-**Status:** Partially implemented on main — Linux IPv4/IPv6 route inventory is available; Windows native route enumeration remains planned.
+**Status:** Partially implemented on main — Linux IPv4/IPv6 route inventory is available; Windows native route enumeration remains planned. The Windows API review is recorded in [NET-02B-WINDOWS-API-REVIEW.md](NET-02B-WINDOWS-API-REVIEW.md).
 **Owner:** Core maintainer.
 **Target platforms:** Windows and Linux.
 
@@ -26,11 +26,14 @@ Extend the existing read-only `net interfaces` inventory with a separate command
 - Malformed rows, invalid prefix lengths, non-contiguous IPv4 masks, and missing procfs files return explicit errors.
 - Do not parse human-formatted output from `ip route` or shell out to external utilities.
 
-### Windows — planned
+### Windows — API reviewed; implementation pending
 
-- Add the Windows IP Helper routing-table API (`GetIpForwardTable2` / `FreeMibTable`) through a narrowly scoped, reviewed FFI or approved Windows API crate.
-- Correctly handle IPv4 and IPv6 rows, interface indices, next-hop addresses, route metrics, API errors, and allocation cleanup.
-- Until this adapter is implemented, `nex net routes` returns an explicit unsupported-platform error on Windows.
+- The selected API candidate is `GetIpForwardTable2(AF_UNSPEC, ...)`, paired with `FreeMibTable` for allocation cleanup.
+- The returned `MIB_IPFORWARD_ROW2` provides destination prefix, next hop, interface index and route metric. A zero prefix and zero prefix length identify a default route; multiple defaults must be preserved.
+- Candidate binding/dependency and the required narrow unsafe boundary are documented in [NET-02B-WINDOWS-API-REVIEW.md](NET-02B-WINDOWS-API-REVIEW.md). No dependency has been added or approved yet.
+- Preserve the Windows interface index explicitly (for example, `ifindex:12`) unless a separately reviewed native mapping to a friendly name is implemented.
+- Preserve the route metric as reported. Windows documents this as a route metric offset; do not present it as the complete effective path metric.
+- Until the adapter is implemented and validated, `nex net routes` returns an explicit unsupported-platform error on Windows.
 - Do not parse localized `route print` output or invoke PowerShell/cmd.
 
 ## Dependency and safety constraints
@@ -61,9 +64,9 @@ Extend the existing read-only `net interfaces` inventory with a separate command
 
 ## Delivery sequence
 
-1. Approve the platform API/dependency design.
+1. Review and approve the platform API/dependency design.
 2. Implement and test the shared route data model and platform adapters.
 3. Add `nex net routes` and deterministic output.
 4. Update command, architecture, and roadmap documentation only after implementation and CI pass.
 
-Until those steps are complete, route/default-gateway inventory remains **Planned**.
+Until those steps are complete, route/default-gateway inventory remains **Partially implemented**.
