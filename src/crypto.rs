@@ -353,4 +353,55 @@ mod tests {
             other => panic!("expected I/O error, got {other}"),
         }
     }
+
+    struct InterruptOnceReader {
+        interrupted: bool,
+        bytes: &'static [u8],
+        offset: usize,
+    }
+
+    impl Read for InterruptOnceReader {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            if !self.interrupted {
+                self.interrupted = true;
+                return Err(io::Error::from(io::ErrorKind::Interrupted));
+            }
+            let remaining = &self.bytes[self.offset..];
+            if remaining.is_empty() {
+                return Ok(0);
+            }
+            let count = remaining.len().min(buffer.len());
+            buffer[..count].copy_from_slice(&remaining[..count]);
+            self.offset += count;
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn retries_interrupted_reads() {
+        let mut reader = InterruptOnceReader {
+            interrupted: false,
+            bytes: b"abc",
+            offset: 0,
+        };
+        assert_eq!(
+            hash_reader::<Sha256, _>(&mut reader).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    struct FailingReader;
+
+    impl Read for FailingReader {
+        fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "test read failure"))
+        }
+    }
+
+    #[test]
+    fn propagates_non_interrupted_read_errors() {
+        let error = hash_reader::<Sha256, _>(&mut FailingReader).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+    }
+
 }
