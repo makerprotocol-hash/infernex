@@ -198,7 +198,7 @@ fn parse_linux_ipv4_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let parse_hex = |value: &str, field: &str| -> std::io::Result<u32> {
             u32::from_str_radix(value, 16).map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid {field} in IPv4 route row at line {}", line_number + 1)))
         };
-        for (index, width) in [(1, 8), (2, 8), (3, 4), (6, 8), (7, 8)] {
+        for (index, width) in [(1, 8), (2, 8), (3, 4), (7, 8)] {
             if fields[index].len() != width {
                 return Err(Error::new(ErrorKind::InvalidData, format!("invalid field width in IPv4 route row at line {}", line_number + 1)));
             }
@@ -206,7 +206,8 @@ fn parse_linux_ipv4_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let destination_raw = parse_hex(fields[1], "destination")?;
         let gateway_raw = parse_hex(fields[2], "gateway")?;
         let flags = parse_hex(fields[3], "flags")?;
-        let metric = parse_hex(fields[6], "metric")?;
+        let metric = fields[6].parse::<u32>()
+            .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid metric in IPv4 route row at line {}", line_number + 1)))?;
         let mask_raw = parse_hex(fields[7], "netmask")?;
         if flags & 0x1 == 0 { continue; }
         let destination = destination_raw.to_le_bytes();
