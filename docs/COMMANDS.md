@@ -36,6 +36,21 @@ nex hash verify sha512 ./release.zip <128-character-hex-digest>
 
 A matching digest confirms byte-for-byte consistency with the expected digest. It does not identify who created the file. Obtain expected checksums from an authenticated source.
 
+## Authorization scope
+
+Manage the local, user-maintained list of targets you are authorized to assess:
+
+```sh
+nex scope add 192.0.2.10
+nex scope add 192.0.2.0/24
+nex scope add lab.example
+nex scope list
+nex scope check 192.0.2.15
+nex scope remove 192.0.2.10
+```
+
+IPv4/IPv6 addresses match exactly or through a containing CIDR. Hostnames match only their exact normalized name; no wildcard, subdomain or DNS-derived authorization is inferred. The inventory is a local record of your authorization, not proof of legal permission. Malformed or unreadable scope storage causes active operations to be refused. Override its file location with `INFERNEX_SCOPE_FILE`.
+
 ## Native network diagnostics
 
 Resolve a hostname using the system DNS resolver:
