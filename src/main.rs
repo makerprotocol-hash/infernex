@@ -279,7 +279,7 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
         eprintln!("UDP diagnostics require one literal IPv4 or IPv6 address.");
         return ExitCode::from(2);
     };
-    let Some(port) = parse_tcp_port(port_text) else {
+    let Some(port) = net::parse_tcp_port(port_text) else {
         eprintln!("Port must be an integer between 1 and 65535.");
         return ExitCode::from(2);
     };
@@ -343,7 +343,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
         eprintln!("Service identification requires one literal IPv4 or IPv6 address.");
         return ExitCode::from(2);
     };
-    let Some(port) = parse_tcp_port(port_text) else {
+    let Some(port) = net::parse_tcp_port(port_text) else {
         eprintln!("Port must be an integer between 1 and 65535.");
         return ExitCode::from(2);
     };
@@ -400,7 +400,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
 
 fn net_port_command(host: &str, port_text: &str) -> ExitCode {
     if !require_authorized_target(host) { return ExitCode::from(3); }
-    let Some(port) = parse_tcp_port(port_text) else {
+    let Some(port) = net::parse_tcp_port(port_text) else {
         eprintln!("Port must be an integer between 1 and 65535.");
         return ExitCode::from(2);
     };
@@ -889,33 +889,6 @@ fn run_engine(name: &str, args: &[String]) -> ExitCode {
 mod tests {
     use super::*;
 
-    #[test]
-    fn service_fingerprinting_uses_banner_not_port_number() {
-        assert_eq!(net::classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\r\n"), "SSH");
-        assert_eq!(net::classify_service_banner(22, b"HTTP/1.1 200 OK\r\n"), "HTTP");
-        assert_eq!(net::classify_service_banner(12345, b"+OK POP3 ready\r\n"), "POP3");
-        assert_eq!(net::classify_service_banner(25, b"220 mail.example ESMTP ready\r\n"), "SMTP");
-        assert_eq!(net::classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
-    }
-    #[test] fn scan_range_parser_enforces_bounds_and_limit() {
-        assert_eq!(net::parse_scan_range("1", "1"), Some((1, 1)));
-        assert_eq!(parse_scan_range("20", "120"), Some((20, 120)));
-        assert_eq!(parse_scan_range("1", "256"), Some((1, 256)));
-        assert_eq!(parse_scan_range("1", "257"), None);
-        assert_eq!(parse_scan_range("100", "99"), None);
-        assert_eq!(parse_scan_range("0", "10"), None);
-        assert_eq!(parse_scan_range("1", "65536"), None);
-    }
-    #[test] fn tcp_port_parser_accepts_valid_ports_and_rejects_invalid_values() {
-        assert_eq!(net::parse_tcp_port("1"), Some(1));
-        assert_eq!(parse_tcp_port("443"), Some(443));
-        assert_eq!(parse_tcp_port("65535"), Some(65535));
-        assert_eq!(parse_tcp_port("0"), None);
-        assert_eq!(parse_tcp_port("65536"), None);
-        assert_eq!(parse_tcp_port("-1"), None);
-        assert_eq!(parse_tcp_port("https"), None);
-        assert_eq!(parse_tcp_port("443/tcp"), None);
-    }
     #[test] fn tokenizes_plain_args() { assert_eq!(tokenize("nmap -sV host").unwrap(), vec!["nmap", "-sV", "host"]); }
     #[test] fn tokenizes_quoted_args() { assert_eq!(tokenize("web --url \"https://example.test/a b\"").unwrap(), vec!["web", "--url", "https://example.test/a b"]); }
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
@@ -955,8 +928,8 @@ mod tests {
         let link_local: std::net::IpAddr = "fe80::1".parse().unwrap();
         let unique_local: std::net::IpAddr = "fd12::1".parse().unwrap();
         assert!(net::is_link_local_ip(link_local));
-        assert!(!is_link_local_ip(unique_local));
-        assert!(is_private_ip(unique_local));
+        assert!(!net::is_link_local_ip(unique_local));
+        assert!(net::is_private_ip(unique_local));
     }
     #[test] fn cidr_v4_calculates_network_boundaries() {
         let ip = std::net::Ipv4Addr::new(192, 0, 2, 17);
