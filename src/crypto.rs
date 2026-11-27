@@ -10,6 +10,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 /// Maximum amount of file data held in memory while hashing.
 pub const HASH_BUFFER_SIZE: usize = 64 * 1024;
@@ -19,6 +20,26 @@ pub const HASH_BUFFER_SIZE: usize = 64 * 1024;
 pub enum HashAlgorithm {
     Sha256,
     Sha512,
+}
+
+/// Parse a canonical hash algorithm name, ignoring ASCII letter case.
+///
+/// Accepted names are `sha256` and `sha512`. Aliases and unknown algorithms
+/// are rejected so callers cannot silently select a different digest.
+impl FromStr for HashAlgorithm {
+    type Err = CryptoError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.eq_ignore_ascii_case("sha256") {
+            Ok(Self::Sha256)
+        } else if value.eq_ignore_ascii_case("sha512") {
+            Ok(Self::Sha512)
+        } else {
+            Err(CryptoError::UnsupportedAlgorithm {
+                algorithm: value.to_owned(),
+            })
+        }
+    }
 }
 
 impl HashAlgorithm {
@@ -67,6 +88,8 @@ pub enum CryptoError {
     InvalidPercentEncoding { index: usize },
     /// Base64 input has invalid length, alphabet, padding, or unused padding bits.
     InvalidBase64 { index: usize },
+    /// A requested hash algorithm name is not supported.
+    UnsupportedAlgorithm { algorithm: String },
 }
 
 impl fmt::Display for CryptoError {
@@ -98,6 +121,9 @@ impl fmt::Display for CryptoError {
             Self::InvalidBase64 { index } => {
                 write!(f, "invalid Base64 input at byte {index}")
             }
+            Self::UnsupportedAlgorithm { algorithm } => {
+                write!(f, "unsupported hash algorithm '{algorithm}' (expected sha256 or sha512)")
+            }
         }
     }
 }
@@ -110,7 +136,8 @@ impl std::error::Error for CryptoError {
             | Self::InvalidHexCharacter { .. }
             | Self::InvalidHexLength { .. }
             | Self::InvalidPercentEncoding { .. }
-            | Self::InvalidBase64 { .. } => None,
+            | Self::InvalidBase64 { .. }
+            | Self::UnsupportedAlgorithm { .. } => None,
         }
     }
 }
@@ -587,6 +614,23 @@ mod tests {
     impl Drop for TestFile {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.directory);
+        }
+    }
+
+    #[test]
+    fn hash_algorithm_parses_canonical_names_case_insensitively() {
+        assert_eq!("sha256".parse::<HashAlgorithm>().unwrap(), HashAlgorithm::Sha256);
+        assert_eq!("SHA256".parse::<HashAlgorithm>().unwrap(), HashAlgorithm::Sha256);
+        assert_eq!("Sha512".parse::<HashAlgorithm>().unwrap(), HashAlgorithm::Sha512);
+    }
+
+    #[test]
+    fn hash_algorithm_rejects_unknown_names_and_aliases() {
+        for name in ["sha-256", "sha1", "blake3", "", " sha256"] {
+            assert!(matches!(
+                name.parse::<HashAlgorithm>(),
+                Err(CryptoError::UnsupportedAlgorithm { .. })
+            ));
         }
     }
 
