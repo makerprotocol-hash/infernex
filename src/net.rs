@@ -121,11 +121,75 @@ pub(crate) fn identify_service_banner(
     Ok(banner)
 }
 
+
+
+/// One address assigned to a local network interface.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct InterfaceAddress {
+    pub name: String,
+    pub ip: IpAddr,
+    pub netmask: IpAddr,
+    pub prefix_len: u8,
+    pub broadcast: Option<IpAddr>,
+    pub loopback: bool,
+    pub link_local: bool,
+}
+
+/// Read-only snapshot of local IPv4/IPv6 interface addresses using native OS APIs.
+pub(crate) fn list_interfaces() -> std::io::Result<Vec<InterfaceAddress>> {
+    let mut entries = if_addrs::get_if_addrs()?
+        .into_iter()
+        .map(|interface| {
+            let loopback = interface.is_loopback();
+            let link_local = interface.addr.is_link_local();
+            let (ip, netmask, prefix_len, broadcast) = match interface.addr {
+                if_addrs::IfAddr::V4(address) => (
+                    IpAddr::V4(address.ip),
+                    IpAddr::V4(address.netmask),
+                    address.prefixlen,
+                    address.broadcast.map(IpAddr::V4),
+                ),
+                if_addrs::IfAddr::V6(address) => (
+                    IpAddr::V6(address.ip),
+                    IpAddr::V6(address.netmask),
+                    address.prefixlen,
+                    address.broadcast.map(IpAddr::V6),
+                ),
+            };
+            InterfaceAddress {
+                name: interface.name,
+                ip,
+                netmask,
+                prefix_len,
+                broadcast,
+                loopback,
+                link_local,
+            }
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.ip.cmp(&right.ip)));
+    entries.dedup();
+    Ok(entries)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
 
+
+
+    #[test]
+    fn local_interface_inventory_contains_loopback_address() {
+        let interfaces = list_interfaces().expect("system interface enumeration should succeed");
+        assert!(!interfaces.is_empty(), "at least loopback should be present");
+        assert!(interfaces.iter().any(|entry| entry.loopback && entry.ip.is_loopback()));
+        for entry in interfaces {
+            assert!(entry.prefix_len <= if entry.ip.is_ipv4() { 32 } else { 128 });
+            assert_eq!(entry.ip.is_ipv4(), entry.netmask.is_ipv4());
+            assert_eq!(entry.ip.is_ipv4(), entry.broadcast.map(|ip| ip.is_ipv4()).unwrap_or(entry.ip.is_ipv4()));
+        }
+    }
 
     #[test]
     fn service_identification_reads_loopback_banner_with_limit() {
