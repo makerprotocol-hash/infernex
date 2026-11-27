@@ -298,7 +298,7 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
         return ExitCode::from(2);
     };
     let Some((start, end)) = net::parse_scan_range(start_text, end_text) else {
-        eprintln!("Invalid port range. Use ports 1-65535, ascending, with no more than {MAX_SCAN_PORTS} ports per run.");
+        eprintln!("Invalid port range. Use ports 1-65535, ascending, with no more than {net::MAX_SCAN_PORTS} ports per run.");
         return ExitCode::from(2);
     };
     println!("INFERNEX native TCP scan");
