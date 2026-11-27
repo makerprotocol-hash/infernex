@@ -133,3 +133,8 @@ A milestone is complete only when code, tests, documentation and cross-platform 
 - Keep dependencies minimal and reviewed.
 - Support Windows and Linux or document limitations.
 - Do not claim parity with mature security suites without evidence.
+
+
+## Master roadmap
+
+Use [docs/ROADMAP.md](ROADMAP.md) as the long-term product plan. This file tracks near-term workstream ownership and task execution; the master roadmap defines the full engine scope and milestones.
