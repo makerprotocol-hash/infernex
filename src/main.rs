@@ -328,7 +328,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     // Send a minimal, non-destructive HTTP HEAD request only on conventional
     // cleartext HTTP ports. Other protocols are identified from their greeting.
     if matches!(port, 80 | 8000 | 8008 | 8080 | 8081 | 8888) {
-        let request = format!("HEAD / HTTP/1.0\\r\\nHost: {target}\\r\\nConnection: close\\r\\n\\r\\n");
+        let request = format!("HEAD / HTTP/1.0\r\nHost: {target}\r\nConnection: close\r\n\r\n");
         if let Err(error) = stream.write_all(request.as_bytes()) {
             eprintln!("Connected, but could not send HTTP identification request: {error}");
             return ExitCode::from(1);
@@ -352,7 +352,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     } else {
         let printable: String = banner.iter().take(160).map(|byte| {
             if byte.is_ascii_graphic() || *byte == b' ' { *byte as char }
-            else if *byte == b'\\r' || *byte == b'\\n' { ' ' }
+            else if *byte == b'\r' || *byte == b'\n' { ' ' }
             else { '.' }
         }).collect();
         println!("Banner sample: {printable}");
@@ -864,10 +864,10 @@ mod tests {
 
     #[test]
     fn service_fingerprinting_uses_banner_not_port_number() {
-        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\\r\\n"), "SSH");
-        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\\r\\n"), "HTTP");
-        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\\r\\n"), "POP3");
-        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\\r\\n"), "SMTP");
+        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\r\n"), "SSH");
+        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\r\n"), "HTTP");
+        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\r\n"), "POP3");
+        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\r\n"), "SMTP");
         assert_eq!(classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
     }
     #[test] fn scan_range_parser_enforces_bounds_and_limit() {
