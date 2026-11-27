@@ -1,8 +1,9 @@
 //! Pure networking primitives shared by the CLI and future native network engines.
 //!
-//! This module intentionally contains no network side effects. Active operations
-//! remain in the command layer until their APIs and authorization contracts are
-//! extracted and tested independently.
+//! Pure networking primitives and bounded native operations shared by the CLI.
+//!
+//! Active-operation APIs do not perform authorization themselves: the CLI must
+//! verify explicit target scope before invoking any network side effect.
 
 use std::net::IpAddr;
 
@@ -52,9 +53,76 @@ pub(crate) fn is_link_local_ip(ip: IpAddr) -> bool {
     }
 }
 
+
+/// Resolve a hostname using the operating system's configured resolver.
+pub(crate) fn resolve_hostname(hostname: &str) -> std::io::Result<Vec<IpAddr>> {
+    use std::collections::BTreeSet;
+    use std::net::ToSocketAddrs;
+    if hostname.is_empty() || hostname.contains('/') || hostname.contains('\\') {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "provide a hostname, not a URL or path"));
+    }
+    let addresses = (hostname, 0).to_socket_addrs()?;
+    let unique: BTreeSet<IpAddr> = addresses.map(|address| address.ip()).collect();
+    Ok(unique.into_iter().collect())
+}
+
+/// Attempt one bounded TCP connection to an already-authorized socket address.
+pub(crate) fn tcp_connect(address: &std::net::SocketAddr, timeout: std::time::Duration) -> std::io::Result<std::net::TcpStream> {
+    std::net::TcpStream::connect_timeout(address, timeout)
+}
+
+/// Send one caller-supplied UDP datagram and wait for a bounded reply.
+/// The caller must check authorization scope before invoking this function.
+pub(crate) fn udp_exchange(destination: std::net::SocketAddr, payload: &[u8], timeout: std::time::Duration, max_response_bytes: usize) -> std::io::Result<Vec<u8>> {
+    use std::net::UdpSocket;
+    let bind_address = if destination.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
+    let socket = UdpSocket::bind(bind_address)?;
+    socket.connect(destination)?;
+    socket.set_read_timeout(Some(timeout))?;
+    socket.send(payload)?;
+    let mut response = vec![0u8; max_response_bytes];
+    let count = socket.recv(&mut response)?;
+    response.truncate(count);
+    Ok(response)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+
+    #[test]
+    fn tcp_connect_works_with_loopback_listener() {
+        use std::net::TcpListener;
+        use std::time::Duration;
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let stream = tcp_connect(&address, Duration::from_secs(1)).unwrap();
+        assert_eq!(stream.peer_addr().unwrap(), address);
+    }
+
+    #[test]
+    fn udp_exchange_round_trips_with_loopback_echo_server() {
+        use std::net::UdpSocket;
+        use std::thread;
+        use std::time::Duration;
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let address = server.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let mut request = [0u8; 32];
+            let (count, peer) = server.recv_from(&mut request).unwrap();
+            server.send_to(&request[..count], peer).unwrap();
+        });
+        let response = udp_exchange(address, b"infernex-test", Duration::from_secs(1), 64).unwrap();
+        worker.join().unwrap();
+        assert_eq!(response, b"infernex-test");
+    }
+
+    #[test]
+    fn resolver_rejects_url_and_path_inputs() {
+        assert_eq!(resolve_hostname("https://example.com").unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(resolve_hostname("../etc/hosts").unwrap_err().kind(), std::io::ErrorKind::InvalidInput);
+    }
 
     #[test]
     fn scan_range_parser_enforces_bounds_and_limit() {
