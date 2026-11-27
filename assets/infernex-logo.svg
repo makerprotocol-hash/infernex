@@ -1,17 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-<title id="title">INFERNEX signature X logo</title>
-<desc id="desc">The INFERNEX signature angular red-orange X, framed by a glowing circular portal.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+<title id="title">INFERNEX X emblem</title>
+<desc id="desc">The INFERNEX signature angular X in molten orange and crimson, framed by a subtle energy ring.</desc>
 <defs>
- <linearGradient id="x" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff9b25"/><stop offset=".48" stop-color="#ff3b19"/><stop offset="1" stop-color="#d90025"/></linearGradient>
- <radialGradient id="bg"><stop stop-color="#251015"/><stop offset="1" stop-color="#030407"/></radialGradient>
- <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-</defs>
-<rect width="512" height="512" rx="100" fill="url(#bg)"/>
-<circle cx="256" cy="242" r="194" fill="none" stroke="#8b1a20" stroke-width="3" opacity=".8"/>
-<circle cx="256" cy="242" r="174" fill="none" stroke="url(#x)" stroke-width="8" stroke-dasharray="270 22 72 22" filter="url(#glow)"/>
-<circle cx="256" cy="242" r="150" fill="none" stroke="#ff8b27" stroke-width="2" stroke-dasharray="5 15" opacity=".8"/>
-<path d="M116 100L220 218L256 36L292 218L396 100L321 252L396 390L292 285L256 476L220 285L116 390L191 252Z" fill="url(#x)" stroke="#ff5a20" stroke-width="5" filter="url(#glow)"/>
-<path d="M176 119L242 225L256 164L270 225L336 119L289 251L336 359L270 278L256 338L242 278L176 359L223 251Z" fill="#180b10" opacity=".82"/>
-<path d="M256 164L269 239L348 251L269 264L256 338L243 264L164 251L243 239Z" fill="#ff9a31" opacity=".92" filter="url(#glow)"/>
-<text x="256" y="505" fill="#fff0e8" font-family="Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="6" text-anchor="middle">INFERNEX</text>
+ <radialGradient id="bg"><stop offset="0" stop-color="#35100b"/><stop offset=".55" stop-color="#100706"/><stop offset="1" stop-color="#030304"/></radialGradient>
+ <linearGradient id="hot" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff4d5"/><stop offset=".18" stop-color="#ffb12b"/><stop offset=".48" stop-color="#ff4a0b"/><stop offset=".78" stop-color="#e20d18"/><stop offset="1" stop-color="#5b050d"/></linearGradient>
+ <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff4e7"/><stop offset=".22" stop-color="#8c7771"/><stop offset=".5" stop-color="#1a1112"/><stop offset=".72" stop-color="#ff6b1a"/><stop offset="1" stop-color="#520610"/></linearGradient>
+ <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="18" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ </defs>
+ <circle cx="512" cy="512" r="472" fill="url(#bg)"/>
+ <g fill="none" stroke="#f04412" filter="url(#glow)" opacity=".72"><circle cx="512" cy="512" r="350" stroke-width="10"/><circle cx="512" cy="512" r="380" stroke-width="2" stroke-dasharray="18 16"/><path d="M512 42V982M42 512H982" stroke-width="2" opacity=".55"/></g>
+ <circle cx="512" cy="512" r="310" fill="none" stroke="#ff8a24" stroke-width="5" opacity=".45"/>
+ <path d="M244 226 438 404 512 478 586 404 780 226 846 160 684 430 592 512 684 594 846 864 780 798 586 620 512 546 438 620 244 798 178 864 340 594 432 512 340 430 178 160Z" fill="#23090a" stroke="#ff4a13" stroke-width="12" stroke-linejoin="miter" filter="url(#glow)"/>
+ <path d="M244 226 438 404 512 478 586 404 780 226 684 430 592 512 684 594 780 798 586 620 512 546 438 620 244 798 340 594 432 512 340 430Z" fill="url(#hot)" stroke="#ffb33c" stroke-width="7" stroke-linejoin="miter"/>
+ <path d="M244 226 438 404 512 478 586 404 780 226 684 430 592 512 512 478 432 512 340 430Z" fill="url(#steel)" opacity=".86"/>
+ <path d="M178 160 340 430 432 512 340 594 178 864 244 798 438 620 512 546 586 620 780 798 846 864 684 594 592 512 684 430 846 160 780 226 586 404 512 478 438 404 244 226Z" fill="none" stroke="#ff6a1b" stroke-width="8" stroke-linejoin="miter"/>
+ <path d="M512 448 538 486 576 512 538 538 512 576 486 538 448 512 486 486Z" fill="#fff4cb" filter="url(#glow)"/>
+ <g fill="#ff6a1b"><circle cx="512" cy="78" r="5"/><circle cx="946" cy="512" r="5"/><circle cx="512" cy="946" r="5"/><circle cx="78" cy="512" r="5"/></g>
 </svg>
