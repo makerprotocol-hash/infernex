@@ -1,98 +1,135 @@
-# INFERNEX Parallel Engineering Workstreams
+# INFERNEX engineering roadmap and workstreams
 
-INFERNEX is moving to a **native-first, all-in-one cybersecurity platform**. Its core capabilities must be implemented and maintained in this repository. Third-party integrations may remain optional compatibility adapters, but native commands must not require them.
+INFERNEX is a **native-first, all-in-one cybersecurity platform**. Native implementations in this repository are the product. External tools may remain optional compatibility adapters, never a required foundation.
 
-This file defines parallel code ownership to prevent conflicting edits.
+This document is also the task handoff for human contributors and coding agents. Pick one task card, follow its file boundaries, open a focused pull request, and stop rather than modifying another workstream's files.
 
-## Core maintainer — CLI, networking and platform (approximately 60%)
+## Ownership and file boundaries
+
+### Core maintainer — CLI, networking and integration
 
 Owns:
-- `src/main.rs`: CLI dispatcher, REPL, help, command integration
-- `src/net.rs` (new): native networking, DNS, TCP connect scanning, service identification, network diagnostics
-- `Cargo.toml` and `Cargo.lock`: dependency decisions and integration
-- Engine adapters and eventual removal/reclassification of external-tool-dependent features
-- Themes, aliases, global configuration, release workflows
-- Shared architecture, integration, review and merges
+- `src/main.rs` — CLI dispatcher, REPL, help and integration.
+- `src/net.rs` — new networking module and its tests.
+- `Cargo.toml`, `Cargo.lock` — dependency review and integration.
+- `.github/workflows/**` — CI and release workflows.
+- `README.md`, architecture, command reference and release documentation.
+- Reviews and merges all contributor PRs.
 
-### Networking roadmap
+### Crypto contributor — module-only work
 
-Build original INFERNEX implementations, with clear safe limits and tests:
-1. Native host/IP parsing, DNS resolution and local network information
-2. TCP connect scanner with strict bounded ranges and timeouts
-3. Service identification from observed protocol responses (not just port-number guesses)
-4. Network inventory and structured output
-5. Additional protocol diagnostics, with authorization scope enforced before active network actions
+Owns:
+- `src/crypto.rs` and tests inside that module, on a dedicated feature branch.
 
-Do not claim full Nmap equivalence. Implement and document each protocol/feature ourselves.
+Must not edit:
+- `src/main.rs`, `src/net.rs`, `src/scope.rs`, `Cargo.toml`, `Cargo.lock`, CI workflows or maintainer-owned documentation.
 
-## Second contributor — Cryptography and file integrity (approximately 40%)
+The crypto contributor proposes dependencies in the PR but does not add them without approval.
 
-Own and implement the native cryptography feature in:
+## How coding agents should work
 
-- `src/crypto.rs` — all implementation and unit tests for this feature
+Give the agent one task card from this file. Include these operating rules in its prompt:
 
-Do not edit `src/main.rs`, `src/net.rs`, `Cargo.toml`, `Cargo.lock`, workflows, or files owned by the core maintainer. The maintainer will connect the finished module to CLI commands after reviewing its API. If a new cryptographic crate is needed, propose the exact crate, version, license and reason in the PR; do not change Cargo files.
+1. Fetch/pull the latest `main` before starting.
+2. Create a new branch named exactly as the task card specifies; never commit directly to `main`.
+3. Read the owned module and its tests before editing.
+4. Change only the files listed in that card. If another file appears necessary, stop and explain why in the PR rather than editing it.
+5. Do not rewrite unrelated code or reformat the entire repository.
+6. Add tests for success, invalid input, boundary and error behavior.
+7. Run `cargo test --all-targets`; report the exact result. Run `cargo fmt --check` only if the touched Rust files are formatted; do not claim checks that were not run.
+8. Open a PR against `main`, summarize the API, changed files, tests and limitations. Do not merge it.
+9. Never claim a feature is complete because a stub, design note or untested function exists.
+10. Do not add dependencies, modify manifests, or implement unsafe/unauthorized functionality without maintainer approval.
 
-### Product goal
+## Active contributor task cards
 
-Build INFERNEX's own **Crypto & File Integrity Toolkit**. This is for legitimate file integrity, encryption, decryption and recovery of data the user owns or is authorized to handle. Do not build password cracking, credential theft, ransomware, stealth, or bypasses for access controls.
+### CRYPTO-03 — byte-slice digest helper
 
-### Phase 1 — implement now using existing dependencies
+**Status:** Implemented in open PR #3; maintainer review required.
 
-Use the existing `sha2` dependency and Rust standard library where possible.
+- Owned file: `src/crypto.rs`.
+- Add/test a public byte-slice hash helper using existing SHA-256/SHA-512 algorithms.
+- No CLI, dependency or manifest changes.
 
-1. A typed algorithm enum for SHA-256 and SHA-512.
-2. Streaming file hashing (bounded memory; never load entire large files).
-3. Checksum verification with strict hex length/character validation and case-insensitive digest comparison.
-4. Hash byte-slice helpers for unit tests and future internal use.
-5. Useful typed errors for file I/O, unsupported algorithms and invalid expected digests.
-6. Deterministic output/API that the CLI can consume without knowing implementation details.
-7. Tests: known vectors, empty file, large/multi-buffer file, binary data, invalid checksums, wrong checksum, missing/unreadable file where portable.
+### CRYPTO-04 — explicit file integrity manifests
 
-### Phase 2 — propose authenticated file encryption/decryption
+**Status:** Implemented in open PR #4; stacked on PR #3 and requires review after #3.
 
-Design a safe file-encryption format, but do not add dependencies or claim encryption is implemented until the maintainer approves the dependency proposal.
+- Owned file: `src/crypto.rs`.
+- Build and verify manifests only from explicit caller-supplied file paths.
+- Do not add directory walking, automatic discovery, file modification or a persistence format without separate design review.
+- Keep path and I/O failures explicit; test modified files and malformed digests.
 
-The proposal should use established authenticated encryption (AES-256-GCM or ChaCha20-Poly1305) and a password KDF (Argon2id), with:
-- Random salt and nonce from a cryptographically secure OS RNG
-- Authenticated metadata and versioned file format
-- Strict parameter bounds to prevent malicious KDF resource exhaustion
-- No hard-coded keys, homemade ciphers, or unauthenticated encryption
-- Atomic output writes and no overwrite by default
-- Clear failure behavior: authentication failure must not produce a plaintext output file
-- Tests for round-trip, wrong password, modified ciphertext, truncated files, malformed headers, and resource-bound validation
-- A documented warning that losing the password means the data may be unrecoverable
+### CRYPTO-05 — encryption design proposal
 
-The feature must encrypt/decrypt user-supplied files only. Do not implement disk-wide encryption, background encryption, destructive deletion, stealth, or automatic file discovery.
+**Status:** Not started; proposal only.
 
-### Public API and CLI proposal
+- Do not write encryption code or change dependencies.
+- Submit a design document in the PR description, not a code change.
+- Evaluate an established AEAD (AES-256-GCM or ChaCha20-Poly1305) and Argon2id password KDF.
+- Specify secure OS randomness, versioned/authenticated metadata, parameter limits, atomic no-overwrite output, wrong-password/tamper behavior, and tests.
+- List exact crates, versions, licenses, MSRV and maintenance/security posture for maintainer approval.
 
-Expose a clean module API with equivalents of:
-- `hash_file(path, algorithm)`
-- `verify_file(path, algorithm, expected_hex)`
-- Later, after crypto design approval: `encrypt_file(input, output, password)` and `decrypt_file(input, output, password)`
+### NET-01 — extract native networking module
 
-The core maintainer owns CLI integration, for example:
-- `nex crypto hash sha256 <file>`
-- `nex crypto hash sha512 <file>`
-- `nex crypto verify sha256 <file> <digest>`
-- Later: `nex crypto encrypt <input> <output>` and `nex crypto decrypt <input> <output>`
+**Owner:** Core maintainer. **Status:** Next integration task.
 
-### Branch and delivery
+- Move networking parsing, pure helpers and command logic from `src/main.rs` into `src/net.rs` incrementally.
+- Preserve command names, output meaning, timeouts, input limits and authorization checks.
+- Keep scope checks in front of every active socket operation.
+- Add module-local tests for port/range parsing, CIDR helpers and service banner classification.
+- Do not add dependencies for the initial extraction.
 
-1. Pull latest `main`.
-2. Create branch `feature/native-crypto-toolkit`.
-3. Implement only `src/crypto.rs` and tests inside that module.
-4. Do not edit the CLI or dependency manifests.
-5. Run `cargo fmt --check` and `cargo test`; report exact output and do not claim tests passed if not run.
-6. Open a pull request against `main`; do not merge it.
-7. In the PR explain API, format decisions, cryptographic design, dependency proposals (if any), test coverage and limitations.
+### NET-02 — local interface inventory
+
+**Status:** Planned.
+
+- Implement read-only local interface enumeration for Windows and Linux.
+- Do not transmit packets or require elevated privileges.
+- Report interface name, address, prefix/netmask and up/down state where portable.
+- Document fields unavailable on a platform; test parsers independently.
+
+### NET-03 — DNS record diagnostics
+
+**Status:** Planned.
+
+- Design bounded DNS query support for explicit record types (A, AAAA, MX, TXT, NS, CNAME).
+- Use a reviewed dependency only after maintainer approval; otherwise document standard-library limitations.
+- Bound response size and timeouts; test malformed/truncated responses.
+- DNS answers must never grant authorization scope.
+
+### NET-04 — TLS certificate inspection
+
+**Status:** Planned.
+
+- Inspect one explicitly supplied hostname/IP and port.
+- No scanning or automatic host discovery.
+- Report peer certificate metadata and validation outcome distinctly; never claim trust solely from a readable certificate.
+- Propose dependencies first; include timeout and certificate-chain tests.
+
+### NET-05 — structured output
+
+**Status:** Planned.
+
+- Add machine-readable JSON output for selected read-only commands first.
+- Keep human-readable output as default.
+- Define stable schema/version and escaping; do not leak secrets or environment variables.
+
+## Product milestones
+
+1. **Foundation:** CLI, config, aliases, scope inventory, SHA-256/SHA-512 and basic network diagnostics. (Partially complete; continue tests and module extraction.)
+2. **Native networking:** module extraction, local interface inventory, DNS record diagnostics, TLS inspection and structured output.
+3. **Crypto/file integrity:** byte helpers and explicit manifests; then separately reviewed authenticated file encryption design and implementation.
+4. **Defensive modules:** add narrowly scoped, documented native diagnostics with safe defaults and independent tests.
+5. **Distribution:** finalize licensing, release signing, checksums, installer, upgrade and uninstall workflows.
+
+A milestone is complete only when code, tests, documentation and cross-platform CI agree.
 
 ## Shared rules
 
-- Native INFERNEX code is the product; third-party engines are optional and must never be silently required by native commands.
-- Keep module boundaries clean; coordinate through public APIs and pull requests.
-- No unreviewed dependency changes.
-- No target scanning beyond explicit user-supplied scope; active networking safeguards are owned by the core maintainer.
-- Cross-platform Windows/Linux behavior is required.
-- Do not claim feature completeness or compatibility with established commercial/open-source suites without evidence.
+- Native commands must not silently call external tools.
+- Active network actions require explicit targets in local authorization scope.
+- No stealth, evasion, credential theft, ransomware, destructive automation or unbounded scanning.
+- Keep dependencies minimal and reviewed.
+- Support Windows and Linux or document limitations.
+- Do not claim parity with mature security suites without evidence.
