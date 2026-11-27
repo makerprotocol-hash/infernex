@@ -166,9 +166,9 @@ fn roadmap_command(args: &[String]) -> ExitCode {
             println!("  [PLANNED]     M10 Research labs, fuzzing and safe validation");
             println!("  [PLANNED]     M11 Stable all-in-one release");
             println!("\nCURRENT FOCUS");
-            println!("  1. Finish extracting DNS/TCP/UDP operations from the CLI.");
-            println!("  2. Add interface and route inventory.");
-            println!("  3. Expand DNS, then TLS and HTTP inspection.");
+            println!("  1. Add cross-platform route and default-gateway inventory.");
+            println!("  2. Add bounded DNS record queries and reverse-DNS consistency checks.");
+            println!("  3. Add native TLS certificate and protocol inspection.");
             println!("\nRun 'nex roadmap show' for the complete roadmap and task queue.");
             println!("Roadmap statuses are targets, not claims that planned engines already exist.");
             ExitCode::SUCCESS
