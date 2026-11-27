@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="assets/infernex-logo.svg" alt="INFERNEX portal emblem" width="180" />
+  <img src="assets/infernex-logo.svg" alt="INFERNEX signature red-orange X logo" width="180" />
 </p>
 
-**A native cybersecurity platform. One command environment. Built in Rust.**
+**A native-first cybersecurity command environment. One terminal. Independent engines. Built in Rust.**
 
 INFERNEX is an all-in-one command-line platform for authorized security research, defensive assessment and lab work. Its executable is `nex`.
 
@@ -57,6 +57,10 @@ A roadmap item is not an implemented feature. See [the command reference](docs/C
 - Use established cryptographic constructions; never invent ciphers.
 - Support Windows and Linux, documenting platform limitations.
 - Do not claim parity with mature security suites without evidence.
+
+## Brand identity
+
+The angular red-orange **X** is the official INFERNEX mark. The banner and standalone logo in `assets/` use this signature mark and the project palette.
 
 ## Active roadmap
 
