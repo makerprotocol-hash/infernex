@@ -361,14 +361,13 @@ All contributors and coding agents must:
 
 | Priority | Task | Primary area | Dependency |
 |---|---|---|---|
-| P0 | Rebase and review crypto manifest PR | `src/crypto.rs` | Current main |
-| P0 | Extract networking helpers into module | `src/net/` | Current CLI behavior tests |
+| P0 | Extract DNS/TCP/UDP/service operations from the CLI into the native networking module | `src/main.rs`, `src/net.rs` | Preserve current CLI behavior, scope checks, timeouts and limits; add loopback tests |
+| P1 | Close or mark duplicate crypto PRs #11 and #12 as superseded | PR review only | Manifest and byte-hash APIs already exist on `main` |
 | P1 | Define shared error and findings types | `src/core/` | Architecture extraction |
 | P1 | Add interface and route inventory | `src/net/` | Cross-platform API review |
 | P1 | Expand DNS record queries | `src/net/` | Resolver design |
 | P1 | Add TLS certificate inspection | `src/net/` | Networking module |
 | P1 | Add native HTTP inspection | `src/net/`, `src/web/` | HTTP client design |
-| P1 | Complete crypto manifests and tests | `src/crypto.rs` | PR review |
 | P2 | Add HMAC and secure KDF | `src/crypto.rs` | Crypto threat model |
 | P2 | Add structured findings and reports | `src/core/`, `src/audit/` | Shared data model |
 | P2 | Build local host audit checks | `src/host/` | Findings model |
