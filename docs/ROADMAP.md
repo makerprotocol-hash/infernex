@@ -68,7 +68,7 @@ The following are present in the current project baseline; consult the command r
 
 - [x] SHA-256 and SHA-512 file hashing and verification.
 - [x] Byte-slice hashing helper.
-- [ ] Finish and review explicit file-integrity manifest workflow.
+- [x] Explicit file-integrity manifest APIs for caller-supplied paths (in-memory manifest; no implicit directory traversal or persistence format).
 - [ ] Add SHA-3 and BLAKE2/BLAKE3 only after dependency and implementation review.
 - [ ] HMAC generation and verification.
 - [ ] HKDF key derivation.
@@ -233,10 +233,10 @@ Milestones are dependency-aware targets, not calendar promises.
 ### M0 — Reliable core (current foundation)
 - Stabilize CLI, configuration, scope, crypto module, and tests.
 - Keep documentation synchronized with actual behavior.
-- Resolve open crypto manifest contribution and review its diff before merge.
+- Keep the merged crypto manifest and authenticated-encryption design aligned with implementation, tests, and documentation.
 
 ### M1 — Modular engine architecture
-- Extract networking from `main.rs` into `src/net/`.
+- Complete extraction of networking operations from `main.rs` into `src/net/` (pure primitives are already in `src/net.rs`).
 - Establish shared error, output, configuration, and target types.
 - Keep CLI command handlers thin.
 - Add loopback-based integration tests and Windows/Linux CI coverage.
