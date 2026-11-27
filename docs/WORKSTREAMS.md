@@ -53,7 +53,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-01B — extract network command operations
 
-**Status:** Next maintainer task.
+**Status:** Next maintainer task; current active focus.
 
 - Move DNS, TCP, UDP, and service-identification operations behind typed functions in `src/net.rs`.
 - Keep CLI output and authorization-scope checks at the command boundary or pass an explicit authorization decision into the engine.
@@ -63,7 +63,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-03 — byte-slice digest helper
 
-**Status:** Merged to main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module.
+**Status:** Implemented on main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module. PR #12 was closed without merging because this functionality was already present on main.
 
 - Owned file: `src/crypto.rs`.
 - Add/test a public byte-slice hash helper using existing SHA-256/SHA-512 algorithms.
@@ -71,7 +71,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-04 — explicit file integrity manifests
 
-**Status:** Open PR #4; CI passed on its submitted head. It is stacked on the former PR #3 base and must be rebased/updated onto current `main` before merge.
+**Status:** Implemented on main through merged PR #6 (`f2aea0a`). The in-memory API hashes only caller-supplied paths; it does not walk directories or define a persistence format. PR #11 was closed without merging because this implementation was already present on main.
 
 - Owned file: `src/crypto.rs`.
 - Build and verify manifests only from explicit caller-supplied file paths.
@@ -80,7 +80,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-05 — encryption design proposal
 
-**Status:** Not started; proposal only.
+**Status:** Design proposal merged on main through PR #5 (`eb4e5a7`); implementation is not started. The merged proposal is a design decision, not an encryption feature.
 
 - Do not write encryption code or change dependencies.
 - Submit a design document in the PR description, not a code change.
