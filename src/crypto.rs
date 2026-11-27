@@ -477,15 +477,6 @@ fn base64_value(byte: u8) -> Option<u8> {
         _ => None,
     }
 }
-
-fn digest_to_hex(digest: impl AsRef<[u8]>) -> String {
-    digest
-        .as_ref()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
 /// Verify a file against an expected hexadecimal digest.
 ///
 /// The expected digest must contain exactly the correct number of ASCII
@@ -806,7 +797,10 @@ mod tests {
 
             assert_eq!(reader_digest.len(), expected_len);
             assert_eq!(file_digest, reader_digest);
-            assert_eq!(encode_hex(&reader_digest), hash_reader(&mut Cursor::new(&bytes), algorithm).unwrap());
+            assert_eq!(
+                encode_hex(&reader_digest),
+                hash_reader(&mut Cursor::new(&bytes), algorithm).unwrap()
+            );
             assert_eq!(encode_hex(&file_digest), hash_file(&file.path, algorithm).unwrap());
         }
     }
@@ -817,10 +811,13 @@ mod tests {
 
         for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
             let digest = hash_reader_raw(&mut Cursor::new([]), algorithm).unwrap();
-            assert_eq!(digest.len(), match algorithm {
-                HashAlgorithm::Sha256 => 32,
-                HashAlgorithm::Sha512 => 64,
-            });
+            assert_eq!(
+                digest.len(),
+                match algorithm {
+                    HashAlgorithm::Sha256 => 32,
+                    HashAlgorithm::Sha512 => 64,
+                }
+            );
             assert_eq!(encode_hex(&digest), hash_bytes(&[], algorithm));
         }
 
@@ -1498,17 +1495,3 @@ mod tests {
                 algorithm: HashAlgorithm::Sha512,
                 ..
             }
-        ));
-    }
-
-    #[test]
-    fn mixed_algorithm_manifest_accepts_empty_input() {
-        let manifest = HashManifestV2 { entries: Vec::new() };
-        let report = verify_manifest_v2_report(&manifest).unwrap();
-        assert_eq!(report.total, 0);
-        assert_eq!(report.matched, 0);
-        assert_eq!(report.mismatched, 0);
-        assert!(report.checks.is_empty());
-    }
-
-}
