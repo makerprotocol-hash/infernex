@@ -1,2 +1,2 @@
 # False positive: RFC 4231 HMAC-SHA-256 test-vector text, not a credential.
-785d4ef90134d345d14cf7adcd7d774bea932812:src/crypto.rs:generic-api-key:1547
+src/crypto.rs:generic-api-key:1547
