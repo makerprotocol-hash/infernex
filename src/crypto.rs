@@ -124,6 +124,24 @@ pub fn hash_file<P: AsRef<Path>>(
     }
 }
 
+/// Hash an in-memory byte slice with SHA-256 or SHA-512 and return a lowercase hexadecimal digest.
+ ///
+ /// Unlike [`hash_file`], this helper is infallible and does not perform file I/O.
+pub fn hash_bytes(data: &[u8], algorithm: HashAlgorithm) -> String {
+    match algorithm {
+        HashAlgorithm::Sha256 => digest_to_hex(Sha256::digest(data)),
+        HashAlgorithm::Sha512 => digest_to_hex(Sha512::digest(data)),
+    }
+}
+
+fn digest_to_hex(digest: impl AsRef<[u8]>) -> String {
+    digest
+        .as_ref()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 /// Verify a file against an expected hexadecimal digest.
 ///
 /// The expected digest must contain exactly the correct number of ASCII
@@ -173,8 +191,7 @@ fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<Strin
         }
     }
 
-    let digest = hasher.finalize();
-    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+    Ok(digest_to_hex(hasher.finalize()))
 }
 
 #[cfg(test)]
@@ -226,6 +243,34 @@ mod tests {
             hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
             "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
         );
+    }
+
+    #[test]
+    fn hashes_byte_slices_with_known_vectors() {
+        assert_eq!(
+            hash_bytes(b"abc", HashAlgorithm::Sha256),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            hash_bytes(b"abc", HashAlgorithm::Sha512),
+            "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        );
+        assert_eq!(
+            hash_bytes(b"", HashAlgorithm::Sha256),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn byte_slice_hashes_match_streamed_file_hashes() {
+        let bytes = [0, 0xff, 0x80, b'\\n', 0x7f, 0, 42];
+        let file = TestFile::new(&bytes);
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            assert_eq!(
+                hash_bytes(&bytes, algorithm),
+                hash_file(&file.path, algorithm).unwrap()
+            );
+        }
     }
 
     #[test]
