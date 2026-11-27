@@ -32,13 +32,21 @@ INFERNEX is an early, actively developed foundation—not yet a complete securit
 - One-endpoint native UDP diagnostic: one fixed datagram, bounded response and timeout; no response is inconclusive.
 - Persistent authorization scope for exact IPs, IPv4/IPv6 CIDRs and exact hostnames, with deny-by-default checks for active network operations.
 - Streaming SHA-256 and SHA-512 file hashing and checksum verification.
+- Explicit file-integrity manifest APIs for caller-supplied paths (in-memory; no implicit directory traversal).
+- Read-only local IPv4/IPv6 interface address inventory.
 
 ### In progress
 
-- Extract networking implementation from the CLI into a dedicated, independently tested `src/net.rs`.
-- Expand native crypto and file-integrity APIs, including explicit file manifests (PR #4 is under review).
-- Improve network inventory, DNS diagnostics and structured output.
-- Design authenticated file encryption separately; no encryption command is implemented yet.
+- Complete the next networking inventory step: read-only route and default-gateway reporting for Windows and Linux.
+- Continue bounded DNS record diagnostics, TLS inspection and structured output design.
+
+### Completed foundation work
+
+- Networking operations (DNS, bounded TCP, one-datagram UDP and service identification) are extracted into `src/net.rs`.
+- Explicit file-integrity manifest APIs are implemented for caller-supplied paths.
+- Read-only local IPv4/IPv6 interface address inventory is available through `nex net interfaces`.
+
+Authenticated file encryption remains a design/approval task; no encryption command is implemented yet.
 
 ### Planned
 

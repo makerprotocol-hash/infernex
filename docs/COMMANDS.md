@@ -164,7 +164,6 @@ nex crypto manifest create <algorithm> <file>...
 nex crypto manifest verify <manifest>
 nex crypto encrypt <input> <output>
 nex crypto decrypt <input> <output>
-nex net interfaces
 nex net dns <hostname> <record-type>
 nex net tls <ip-or-host> <port>
 nex output --format json
