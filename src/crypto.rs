@@ -157,13 +157,13 @@ pub fn hash_file<P: AsRef<Path>>(
     })?;
 
     match algorithm {
-        HashAlgorithm::Sha256 => hash_reader::<Sha256, _>(&mut file).map_err(|source| {
+        HashAlgorithm::Sha256 => hash_reader_with_digest::<Sha256, _>(&mut file).map_err(|source| {
             CryptoError::Io {
                 path: path.to_path_buf(),
                 source,
             }
         }),
-        HashAlgorithm::Sha512 => hash_reader::<Sha512, _>(&mut file).map_err(|source| {
+        HashAlgorithm::Sha512 => hash_reader_with_digest::<Sha512, _>(&mut file).map_err(|source| {
             CryptoError::Io {
                 path: path.to_path_buf(),
                 source,
@@ -500,7 +500,22 @@ fn validate_digest(
     Ok(())
 }
 
-fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<String> {
+/// Hash data from any reader with SHA-256 or SHA-512.
+///
+/// Reads incrementally using the module's fixed 64 KiB buffer and retries
+/// interrupted reads. This is useful for streams, pipes, and in-memory cursors
+/// without requiring callers to create a temporary file.
+pub fn hash_reader<R: Read>(
+    reader: &mut R,
+    algorithm: HashAlgorithm,
+) -> io::Result<String> {
+    match algorithm {
+        HashAlgorithm::Sha256 => hash_reader_with_digest::<Sha256, _>(reader),
+        HashAlgorithm::Sha512 => hash_reader_with_digest::<Sha512, _>(reader),
+    }
+}
+
+fn hash_reader_with_digest<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<String> {
     let mut hasher = D::default();
     let mut buffer = [0u8; HASH_BUFFER_SIZE];
 
@@ -643,6 +658,31 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.directory);
         }
+    }
+
+    #[test]
+    fn hash_reader_matches_byte_and_file_hashes_across_buffer_boundaries() {
+        use std::io::Cursor;
+
+        let data = vec![0x5a; HASH_BUFFER_SIZE + 137];
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            let mut reader = Cursor::new(data.as_slice());
+            assert_eq!(
+                hash_reader(&mut reader, algorithm).unwrap(),
+                hash_bytes(&data, algorithm)
+            );
+        }
+    }
+
+    #[test]
+    fn hash_reader_handles_empty_input() {
+        use std::io::Cursor;
+
+        let mut reader = Cursor::new([]);
+        assert_eq!(
+            hash_reader(&mut reader, HashAlgorithm::Sha256).unwrap(),
+            hash_bytes(&[], HashAlgorithm::Sha256)
+        );
     }
 
     #[test]
