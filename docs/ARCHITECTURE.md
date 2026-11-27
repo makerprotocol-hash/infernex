@@ -9,7 +9,7 @@ Optional adapters may be retained for compatibility, but they are secondary. Nat
 ## Current code boundaries
 
 - **CLI/core — `src/main.rs`:** argument parsing, REPL, help, version, config, command routing, current native networking implementation and compatibility adapters. Networking is not yet extracted into a dedicated module.
-- **Native crypto — `src/crypto.rs`:** typed SHA-256/SHA-512 operations, streaming file hashing, checksum verification and module-local tests. Byte-slice helpers and explicit file-integrity manifest APIs are being developed in contributor PRs; they are not yet assumed to be part of main.
+- **Native crypto — `src/crypto.rs`:** typed SHA-256/SHA-512 operations, streaming file hashing, checksum verification and module-local tests. Byte-slice hashing helpers are merged. Explicit file-integrity manifest APIs are in open contributor PR #4 and are not yet part of main.
 - **Native scope — `src/scope.rs`:** local authorization inventory, IP/CIDR/hostname matching and fail-closed matching logic.
 - **Native networking — planned `src/net.rs`:** extract networking helpers and commands from the CLI behind a small tested API without weakening scope enforcement or changing established command behavior.
 - **Optional compatibility adapters:** separately installed external programs, clearly marked optional and never a dependency for native commands.
