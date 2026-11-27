@@ -9,7 +9,7 @@ Optional adapters may be retained for compatibility, but they are secondary. Nat
 ## Current code boundaries
 
 - **CLI/core — `src/main.rs`:** argument parsing, REPL, help, version, config, thin native network command routing, and compatibility adapters.
-- **Native crypto — `src/crypto.rs`:** typed SHA-256/SHA-512 operations, streaming file hashing, checksum verification and module-local tests. Byte-slice hashing helpers are merged. Explicit file-integrity manifest APIs are in open contributor PR #4 and are not yet part of main.
+- **Native crypto — `src/crypto.rs`:** typed SHA-256/SHA-512 operations, streaming file hashing, checksum verification, byte-slice hashing helpers, explicit caller-supplied file-integrity manifests and module-local tests.
 - **Native scope — `src/scope.rs`:** local authorization inventory, IP/CIDR/hostname matching and fail-closed matching logic.
 - **Native networking — `src/net.rs`:** owns pure networking primitives and bounded DNS, TCP, UDP, service-identification, and read-only local interface inventory APIs. The CLI retains output formatting and enforces explicit scope before active operations. Local interface enumeration uses the cross-platform `if-addrs` wrapper over operating-system APIs.
 - **Optional compatibility adapters:** separately installed external programs, clearly marked optional and never a dependency for native commands.
@@ -30,7 +30,7 @@ Each native module must:
 
 Active TCP and UDP operations require explicit targets present in the local authorization scope. The scope implementation supports exact IPs, IPv4/IPv6 CIDRs and exact hostnames; it does not infer permission from DNS results, wildcards or subdomains. No silent target discovery, CIDR expansion, stealth, evasion or unbounded scans. Scanner results are observations, not proof of authorization or vulnerability. Distinguish open, refused and inconclusive/no-response states.
 
-The first modularization step and NET-01B extraction are complete: DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification socket orchestration live in `src/net.rs`. CLI wrappers retain output formatting and enforce explicit authorization scope before active operations. Loopback tests cover TCP, UDP, and service identification. Read-only local IPv4/IPv6 interface inventory is now available through `nex net interfaces`; route/default-gateway inventory remains planned. These are narrow diagnostics, not broad protocol coverage.
+The NET-01 extraction is complete: DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification socket orchestration live in `src/net.rs`. CLI wrappers retain output formatting and enforce explicit authorization scope before active operations. Loopback tests cover TCP, UDP, and service identification. Read-only local IPv4/IPv6 interface inventory is available through `nex net interfaces`; route/default-gateway inventory has a merged design proposal, but implementation remains planned. These are narrow diagnostics, not broad protocol coverage.
 
 ## Cryptography safety
 
