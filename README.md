@@ -28,7 +28,7 @@ INFERNEX is an early, actively developed foundation—not yet a complete securit
 ### In progress
 
 - Extract networking implementation from the CLI into a dedicated, independently tested `src/net.rs`.
-- Expand native crypto and file-integrity APIs, including byte-slice hashing and explicit file manifests under review/integration.
+- Expand native crypto and file-integrity APIs, including explicit file manifests (PR #4 is under review).
 - Improve network inventory, DNS diagnostics and structured output.
 - Design authenticated file encryption separately; no encryption command is implemented yet.
 
