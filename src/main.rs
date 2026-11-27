@@ -322,7 +322,7 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
         eprintln!("UDP datagram could not be sent: {error}");
         return ExitCode::from(1);
     }
-    println!("Sent one { }-byte diagnostic datagram; waiting up to 2 seconds.", PROBE.len());
+    println!("Sent one {}-byte diagnostic datagram; waiting up to 2 seconds.", PROBE.len());
     let mut response = [0u8; 512];
     match socket.recv(&mut response) {
         Ok(count) => {
