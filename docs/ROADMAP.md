@@ -362,7 +362,7 @@ All contributors and coding agents must:
 | Priority | Task | Primary area | Dependency |
 |---|---|---|---|
 | P0 | Extract DNS/TCP/UDP/service operations from the CLI into the native networking module | `src/main.rs`, `src/net.rs` | Preserve current CLI behavior, scope checks, timeouts and limits; add loopback tests |
-| P1 | Close or mark duplicate crypto PRs #11 and #12 as superseded | PR review only | Manifest and byte-hash APIs already exist on `main` |
+| P1 | Keep the crypto API documented and covered as new consumers are added | `src/crypto.rs` | Hash and manifest APIs are implemented on `main` |
 | P1 | Define shared error and findings types | `src/core/` | Architecture extraction |
 | P1 | Add interface and route inventory | `src/net/` | Cross-platform API review |
 | P1 | Expand DNS record queries | `src/net/` | Resolver design |
