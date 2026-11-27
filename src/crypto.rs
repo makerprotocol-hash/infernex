@@ -63,6 +63,8 @@ pub enum CryptoError {
     InvalidHexCharacter { index: usize, byte: u8 },
     /// Hexadecimal input must contain an even number of characters.
     InvalidHexLength { actual: usize },
+    /// A percent-encoded URL component contains an incomplete or invalid escape.
+    InvalidPercentEncoding { index: usize },
 }
 
 impl fmt::Display for CryptoError {
@@ -87,6 +89,10 @@ impl fmt::Display for CryptoError {
                 f,
                 "invalid hexadecimal length: expected an even number of characters, got {actual}"
             ),
+            Self::InvalidPercentEncoding { index } => write!(
+                f,
+                "invalid percent escape at byte {index}: expected two hexadecimal digits"
+            ),
         }
     }
 }
@@ -97,7 +103,8 @@ impl std::error::Error for CryptoError {
             Self::Io { source, .. } => Some(source),
             Self::InvalidDigestLength { .. }
             | Self::InvalidHexCharacter { .. }
-            | Self::InvalidHexLength { .. } => None,
+            | Self::InvalidHexLength { .. }
+            | Self::InvalidPercentEncoding { .. } => None,
         }
     }
 }
@@ -185,6 +192,62 @@ fn hex_nibble(byte: u8) -> Option<u8> {
         b'A'..=b'F' => Some(byte - b'A' + 10),
         _ => None,
     }
+}
+
+/// Percent-encode a URL component using RFC 3986 unreserved characters.
+///
+/// ASCII letters, digits, '-', '.', '_', and '~' are left unchanged. Every
+/// other input byte is encoded as an uppercase `%HH` escape. This function
+/// encodes one component, not a complete URL, and does not apply form rules
+/// such as converting spaces to '+'.
+pub fn percent_encode(data: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(data.len());
+
+    for &byte in data {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(char::from(HEX[(byte >> 4) as usize]));
+            encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
+    }
+
+    encoded
+}
+
+/// Decode percent escapes in one URL component into its original bytes.
+///
+/// Non-escaped bytes are copied unchanged. A '+' remains '+', because this is
+/// RFC 3986 component decoding rather than application/x-www-form-urlencoded
+/// decoding. Invalid or incomplete escapes return the byte index of '%'.
+pub fn percent_decode(encoded: &str) -> Result<Vec<u8>, CryptoError> {
+    let input = encoded.as_bytes();
+    let mut decoded = Vec::with_capacity(input.len());
+    let mut index = 0;
+
+    while index < input.len() {
+        if input[index] != b'%' {
+            decoded.push(input[index]);
+            index += 1;
+            continue;
+        }
+
+        if index + 2 >= input.len() {
+            return Err(CryptoError::InvalidPercentEncoding { index });
+        }
+
+        let high = hex_nibble(input[index + 1])
+            .ok_or(CryptoError::InvalidPercentEncoding { index })?;
+        let low = hex_nibble(input[index + 2])
+            .ok_or(CryptoError::InvalidPercentEncoding { index })?;
+
+        decoded.push((high << 4) | low);
+        index += 3;
+    }
+
+    Ok(decoded)
 }
 
 fn digest_to_hex(digest: impl AsRef<[u8]>) -> String {
@@ -604,6 +667,48 @@ mod tests {
     fn propagates_non_interrupted_read_errors() {
         let error = hash_reader::<Sha256, _>(&mut FailingReader).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+    }
+
+    #[test]
+    fn percent_encodes_rfc3986_component_bytes() {
+        assert_eq!(
+            percent_encode(b"AZaz09-._~ /?&=+"),
+            "AZaz09-._~%20%2F%3F%26%3D%2B"
+        );
+    }
+
+    #[test]
+    fn percent_decodes_binary_data_and_mixed_case_escapes() {
+        assert_eq!(
+            percent_decode("%00%ff%aB%7e").unwrap(),
+            vec![0x00, 0xff, 0xab, b'~']
+        );
+    }
+
+    #[test]
+    fn percent_round_trip_preserves_arbitrary_bytes() {
+        let bytes = [0, 0xff, 0x80, b'%', b'+', b' ', b'~'];
+        assert_eq!(percent_decode(&percent_encode(&bytes)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn percent_decode_does_not_convert_plus_to_space() {
+        assert_eq!(percent_decode("a+b%2Bc").unwrap(), b"a+b+c".to_vec());
+    }
+
+    #[test]
+    fn percent_decode_rejects_incomplete_or_invalid_escapes() {
+        for invalid in ["%", "%0", "%GG", "ok%2x", "a%0g"] {
+            let error = percent_decode(invalid).unwrap_err();
+            assert!(matches!(
+                error,
+                CryptoError::InvalidPercentEncoding { .. }
+            ));
+        }
+        assert!(matches!(
+            percent_decode("ok%2x").unwrap_err(),
+            CryptoError::InvalidPercentEncoding { index: 2 }
+        ));
     }
 
     #[test]
