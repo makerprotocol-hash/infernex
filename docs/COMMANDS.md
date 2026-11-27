@@ -62,6 +62,7 @@ A matching digest confirms byte-for-byte consistency with the expected digest. I
 List local IPv4 and IPv6 interface addresses without sending network traffic:
 
 ```sh
+nex net interfaces
 ```
 
 This read-only inventory uses operating-system interface APIs and reports interface name, address, prefix length, netmask, optional broadcast address, and loopback/link-local classification. It does not change interface state or enumerate remote hosts. Route and default-gateway inventory is a separate planned capability.
@@ -163,7 +164,6 @@ nex crypto manifest create <algorithm> <file>...
 nex crypto manifest verify <manifest>
 nex crypto encrypt <input> <output>
 nex crypto decrypt <input> <output>
-nex net interfaces
 nex net dns <hostname> <record-type>
 nex net tls <ip-or-host> <port>
 nex output --format json
