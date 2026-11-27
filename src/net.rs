@@ -204,9 +204,9 @@ fn parse_linux_ipv4_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let metric = parse_hex(fields[6], "metric")?;
         let mask_raw = parse_hex(fields[7], "netmask")?;
         if flags & 0x1 == 0 { continue; }
-        let destination = u32::from_le(destination_raw).to_le_bytes();
-        let gateway = u32::from_le(gateway_raw).to_le_bytes();
-        let mask = u32::from_le(mask_raw).to_le_bytes();
+        let destination = destination_raw.to_le_bytes();
+        let gateway = gateway_raw.to_le_bytes();
+        let mask = mask_raw.to_le_bytes();
         let mask_value = u32::from_be_bytes(mask);
         let inverse = !mask_value;
         if inverse & inverse.wrapping_add(1) != 0 {
