@@ -486,4 +486,43 @@ eth0 0002A8C0 00000000 0001 0 0 10 00FFFFFF 0 0 0\n";
         assert!(is_link_local_ip(v6_link_local));
         assert!(!is_link_local_ip(unique_local));
     }
+
+    #[test]
+    fn preserves_multiple_ipv4_default_routes() {
+        let input = "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n\
+eth0 00000000 0102A8C0 0003 0 0 10 00000000 0 0 0\n\
+wlan0 00000000 0101A8C0 0003 0 0 20 00000000 0 0 0\\n";
+        let routes = parse_linux_ipv4_routes(input).unwrap();
+        assert_eq!(routes.len(), 2);
+        assert!(routes.iter().all(|route| route.default_route));
+        assert_eq!(routes[0].metric, 10);
+        assert_eq!(routes[1].metric, 20);
+    }
+
+    #[test]
+    fn accepts_empty_linux_route_tables() {
+        let ipv4 = parse_linux_ipv4_routes("Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\\n").unwrap();
+        let ipv6 = parse_linux_ipv6_routes("").unwrap();
+        assert!(ipv4.is_empty());
+        assert!(ipv6.is_empty());
+    }
+
+    #[test]
+    fn rejects_non_contiguous_ipv4_route_masks() {
+        let input = "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n\
+eth0 00000000 00000000 0001 0 0 10 00FF00FF 0 0 0\\n";
+        assert_eq!(parse_linux_ipv4_routes(input).unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn preserves_duplicate_ipv6_default_routes() {
+        let input = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 fe800000000000000000000000000001 0000000a 00000000 00000000 00000001 eth0\n\
+00000000000000000000000000000000 00 00000000000000000000000000000000 00 fe800000000000000000000000000002 00000014 00000000 00000000 00000001 eth1\\n";
+        let routes = parse_linux_ipv6_routes(input).unwrap();
+        assert_eq!(routes.len(), 2);
+        assert!(routes.iter().all(|route| route.default_route));
+        assert_eq!(routes[0].metric, 10);
+        assert_eq!(routes[1].metric, 20);
+    }
+
 }
