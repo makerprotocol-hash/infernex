@@ -172,12 +172,169 @@ pub(crate) fn list_interfaces() -> std::io::Result<Vec<InterfaceAddress>> {
     Ok(entries)
 }
 
+
+
+/// One read-only route-table entry reported by the local operating system.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RouteEntry {
+    pub destination: IpAddr,
+    pub prefix_len: u8,
+    /// None means the route is directly connected (on-link).
+    pub next_hop: Option<IpAddr>,
+    pub interface: String,
+    pub metric: u32,
+    pub default_route: bool,
+}
+
+fn parse_linux_ipv4_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
+    use std::io::{Error, ErrorKind};
+    let mut routes = Vec::new();
+    for (line_number, line) in input.lines().enumerate().skip(1) {
+        if line.trim().is_empty() { continue; }
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 11 {
+            return Err(Error::new(ErrorKind::InvalidData, format!("invalid IPv4 route row at line {}", line_number + 1)));
+        }
+        let parse_hex = |value: &str, field: &str| -> std::io::Result<u32> {
+            u32::from_str_radix(value, 16).map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid {field} in IPv4 route row at line {}", line_number + 1)))
+        };
+        let destination_raw = parse_hex(fields[1], "destination")?;
+        let gateway_raw = parse_hex(fields[2], "gateway")?;
+        let flags = parse_hex(fields[3], "flags")?;
+        let metric = parse_hex(fields[6], "metric")?;
+        let mask_raw = parse_hex(fields[7], "netmask")?;
+        if flags & 0x1 == 0 { continue; }
+        let destination = u32::from_le(destination_raw).to_le_bytes();
+        let gateway = u32::from_le(gateway_raw).to_le_bytes();
+        let mask = u32::from_le(mask_raw).to_le_bytes();
+        let mask_value = u32::from_be_bytes(mask);
+        let inverse = !mask_value;
+        if inverse & inverse.wrapping_add(1) != 0 {
+            return Err(Error::new(ErrorKind::InvalidData, format!("non-contiguous IPv4 netmask at line {}", line_number + 1)));
+        }
+        let prefix_len = mask_value.count_ones() as u8;
+        let destination_value = u32::from_be_bytes(destination) & mask_value;
+        let destination = IpAddr::V4(std::net::Ipv4Addr::from(destination_value.to_be_bytes()));
+        let gateway = std::net::Ipv4Addr::from(gateway);
+        let next_hop = if gateway.is_unspecified() { None } else { Some(IpAddr::V4(gateway)) };
+        routes.push(RouteEntry {
+            destination,
+            prefix_len,
+            next_hop,
+            interface: fields[0].to_string(),
+            metric,
+            default_route: prefix_len == 0 && destination.is_unspecified(),
+        });
+    }
+    Ok(routes)
+}
+
+fn parse_linux_ipv6_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
+    use std::io::{Error, ErrorKind};
+    let mut routes = Vec::new();
+    for (line_number, line) in input.lines().enumerate() {
+        if line.trim().is_empty() { continue; }
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 10 {
+            return Err(Error::new(ErrorKind::InvalidData, format!("invalid IPv6 route row at line {}", line_number + 1)));
+        }
+        let parse_hex = |value: &str, field: &str| -> std::io::Result<u128> {
+            u128::from_str_radix(value, 16).map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid {field} in IPv6 route row at line {}", line_number + 1)))
+        };
+        let destination_raw = parse_hex(fields[0], "destination")?;
+        let prefix = u8::from_str_radix(fields[1], 16)
+            .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid prefix at line {}", line_number + 1)))?;
+        let next_hop_raw = parse_hex(fields[4], "next hop")?;
+        let metric = u32::from_str_radix(fields[5], 16)
+            .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid metric at line {}", line_number + 1)))?;
+        let flags = u32::from_str_radix(fields[8], 16)
+            .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid flags at line {}", line_number + 1)))?;
+        if prefix > 128 {
+            return Err(Error::new(ErrorKind::InvalidData, format!("IPv6 prefix out of range at line {}", line_number + 1)));
+        }
+        if flags & 0x1 == 0 { continue; }
+        let destination = IpAddr::V6(std::net::Ipv6Addr::from(destination_raw));
+        let next_hop_address = std::net::Ipv6Addr::from(next_hop_raw);
+        routes.push(RouteEntry {
+            destination,
+            prefix_len: prefix,
+            next_hop: if next_hop_address.is_unspecified() { None } else { Some(IpAddr::V6(next_hop_address)) },
+            interface: fields[9].to_string(),
+            metric,
+            default_route: prefix == 0 && destination.is_unspecified(),
+        });
+    }
+    Ok(routes)
+}
+
+/// Read the local routing table without sending packets or modifying routes.
+/// Linux currently uses kernel procfs snapshots; other platforms are not yet supported.
+pub(crate) fn list_routes() -> std::io::Result<Vec<RouteEntry>> {
+    #[cfg(target_os = "linux")]
+    {
+        let ipv4 = std::fs::read_to_string("/proc/net/route")?;
+        let ipv6 = std::fs::read_to_string("/proc/net/ipv6_route")?;
+        let mut routes = parse_linux_ipv4_routes(&ipv4)?;
+        routes.extend(parse_linux_ipv6_routes(&ipv6)?);
+        routes.sort_by(|left, right| {
+            left.destination.is_ipv4().cmp(&right.destination.is_ipv4())
+                .then_with(|| left.destination.cmp(&right.destination))
+                .then_with(|| left.prefix_len.cmp(&right.prefix_len))
+                .then_with(|| left.metric.cmp(&right.metric))
+                .then_with(|| left.interface.cmp(&right.interface))
+        });
+        Ok(routes)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported,
+            "route inventory is currently implemented on Linux only; Windows support is planned"))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
 
 
+
+
+    #[test]
+    fn parses_linux_ipv4_route_rows_and_default_gateway() {
+        let input = "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n\
+eth0 00000000 0102A8C0 0003 0 0 25 00000000 0 0 0\n\
+eth0 0002A8C0 00000000 0001 0 0 10 00FFFFFF 0 0 0\n";
+        let routes = parse_linux_ipv4_routes(input).unwrap();
+        assert_eq!(routes.len(), 2);
+        assert_eq!(routes[0].destination, "0.0.0.0".parse::<IpAddr>().unwrap());
+        assert_eq!(routes[0].prefix_len, 0);
+        assert_eq!(routes[0].next_hop, Some("192.168.2.1".parse().unwrap()));
+        assert!(routes[0].default_route);
+        assert_eq!(routes[0].metric, 25);
+        assert_eq!(routes[1].destination, "192.168.2.0".parse::<IpAddr>().unwrap());
+        assert_eq!(routes[1].prefix_len, 24);
+        assert_eq!(routes[1].next_hop, None);
+        assert!(!routes[1].default_route);
+    }
+
+    #[test]
+    fn parses_linux_ipv6_route_rows_and_default_gateway() {
+        let input = "00000000000000000000000000000000 00 00000000000000000000000000000000 00 fe800000000000000000000000000001 00000014 00000000 00000000 00000001 eth0\n";
+        let routes = parse_linux_ipv6_routes(input).unwrap();
+        assert_eq!(routes.len(), 1);
+        assert_eq!(routes[0].destination, "::".parse::<IpAddr>().unwrap());
+        assert_eq!(routes[0].prefix_len, 0);
+        assert_eq!(routes[0].next_hop, Some("fe80::1".parse().unwrap()));
+        assert_eq!(routes[0].metric, 20);
+        assert!(routes[0].default_route);
+    }
+
+    #[test]
+    fn rejects_malformed_linux_route_rows() {
+        assert_eq!(parse_linux_ipv4_routes("Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\neth0 bad").unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        assert_eq!(parse_linux_ipv6_routes("00000000000000000000000000000000 ff 00000000000000000000000000000000 00 00000000000000000000000000000000 00000000 00000000 00000000 00000001 eth0").unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+    }
 
     #[test]
     fn local_interface_inventory_contains_loopback_address() {
