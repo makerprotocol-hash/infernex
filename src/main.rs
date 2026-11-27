@@ -1,7 +1,7 @@
 use std::env;
-use std::fs::{self, File};
+use std::fs;
 use std::io::Read;
-use sha2::{Digest, Sha256, Sha512};
+
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -9,7 +9,7 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 use std::collections::BTreeSet;
 
-mod scope;
+mod crypto;\nmod scope;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -475,52 +475,56 @@ fn cidr_command(value: &str) -> ExitCode {
 }
 
 fn hash_command(args: &[String]) -> ExitCode {
+    let algorithm = |name: &str| match name {
+        "sha256" => Some(crypto::HashAlgorithm::Sha256),
+        "sha512" => Some(crypto::HashAlgorithm::Sha512),
+        _ => None,
+    };
+
     match args {
-        [algorithm, path] if algorithm == "sha256" => match sha256_file(path) {
-            Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS },
-            Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
-        },
-        [algorithm, path] if algorithm == "sha512" => match sha512_file(path) {
-            Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS },
-            Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
-        },
-        [action, algorithm, path, expected] if action == "verify" && (algorithm == "sha256" || algorithm == "sha512") => {
-            let expected_len = if algorithm == "sha256" { 64 } else { 128 };
-            if expected.len() != expected_len || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
-                eprintln!("Expected {algorithm} must be exactly {expected_len} hexadecimal characters.");
+        [name, path] => {
+            let Some(algorithm) = algorithm(name) else {
+                eprintln!("Unsupported hash algorithm '{name}'. Use sha256 or sha512.");
                 return ExitCode::from(2);
-            }
-            let result = if algorithm == "sha256" { sha256_file(path) } else { sha512_file(path) };
-            match result {
-                Ok(actual) if actual.eq_ignore_ascii_case(expected) => { println!("OK: {algorithm} matches for '{}'.", path); ExitCode::SUCCESS },
-                Ok(actual) => { eprintln!("MISMATCH: expected {}, got {}", expected, actual); ExitCode::from(1) },
-                Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
+            };
+            match crypto::hash_file(path, algorithm) {
+                Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS }
+                Err(error) => { eprintln!("Cannot hash '{}': {}", path, error); ExitCode::FAILURE }
             }
         }
-        _ => { eprintln!("Usage: nex hash <sha256|sha512> <file> | nex hash verify <sha256|sha512> <file> <expected-hex>"); ExitCode::from(2) }
+        [action, name, path, expected] if action == "verify" => {
+            let Some(algorithm) = algorithm(name) else {
+                eprintln!("Unsupported hash algorithm '{name}'. Use sha256 or sha512.");
+                return ExitCode::from(2);
+            };
+            match crypto::verify_file(path, algorithm, expected) {
+                Ok(true) => {
+                    println!("OK: {name} matches for '{}'.", path);
+                    ExitCode::SUCCESS
+                }
+                Ok(false) => {
+                    match crypto::hash_file(path, algorithm) {
+                        Ok(actual) => {
+                            eprintln!("MISMATCH: expected {}, got {}", expected, actual);
+                            ExitCode::from(1)
+                        }
+                        Err(error) => {
+                            eprintln!("Cannot hash '{}': {}", path, error);
+                            ExitCode::FAILURE
+                        }
+                    }
+                }
+                Err(error) => {
+                    eprintln!("Cannot verify '{}': {}", path, error);
+                    ExitCode::from(2)
+                }
+            }
+        }
+        _ => {
+            eprintln!("Usage: nex hash <sha256|sha512> <file> | nex hash verify <sha256|sha512> <file> <expected-hex>");
+            ExitCode::from(2)
+        }
     }
-}
-fn sha256_file(path: &str) -> io::Result<String> {
-    let mut file = File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 65536];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
-        hasher.update(&buffer[..count]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
-}
-fn sha512_file(path: &str) -> io::Result<String> {
-    let mut file = File::open(path)?;
-    let mut hasher = Sha512::new();
-    let mut buffer = [0u8; 65536];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
-        hasher.update(&buffer[..count]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
 }
 fn config_command(args: &[String]) -> ExitCode {
     match args {
@@ -955,12 +959,6 @@ mod tests {
         let saved = fs::read_to_string(&path).unwrap();
         assert!(saved.contains("theme=ember"));
         assert!(saved.contains("aliases=true"));
-        fs::remove_file(path).unwrap();
-    }
-    #[test] fn hashes_file_contents() {
-        let path = env::temp_dir().join(format!("infernex-hash-test-{}", std::process::id()));
-        fs::write(&path, b"abc").unwrap();
-        assert_eq!(sha256_file(path.to_str().unwrap()).unwrap(), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
         fs::remove_file(path).unwrap();
     }
 }
