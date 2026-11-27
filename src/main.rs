@@ -147,6 +147,7 @@ fn help() {
     println!("  net port <host> <port>         Test one TCP destination port");
     println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
     println!("  net service <ip> <port>        Identify a service from its banner");
+    println!("  net udp <ip> <port>            Bounded UDP request/response diagnostic");
     println!("  scope add|remove <target>      Manage authorized targets");
     println!("  scope list|check <target>      Inspect authorization scope");
     println!("  hash <sha256|sha512> <file>    Calculate a file digest");
@@ -231,7 +232,8 @@ fn net_command(args: &[String]) -> ExitCode {
         [action, host, port] if action == "port" => net_port_command(host, port),
         [action, target, start, end] if action == "scan" => net_scan_command(target, start, end),
         [action, target, port] if action == "service" => net_service_command(target, port),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port>"); ExitCode::from(2) }
+        [action, target, port] if action == "udp" => net_udp_command(target, port),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port> | nex net udp <ip> <port>"); ExitCode::from(2) }
     }
 }
 
@@ -281,6 +283,66 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
     println!("\nScan complete: {open} open, {refused} refused, {} no response.", total - open - refused);
     println!("No response can indicate filtering, routing failure, or timeout; it does not prove a port is closed.");
     ExitCode::SUCCESS
+}
+
+// Sends one fixed, harmless diagnostic datagram to one explicitly scoped UDP endpoint.
+fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
+    let Ok(target) = target_text.parse::<std::net::IpAddr>() else {
+        eprintln!("UDP diagnostics require one literal IPv4 or IPv6 address.");
+        return ExitCode::from(2);
+    };
+    let Some(port) = parse_tcp_port(port_text) else {
+        eprintln!("Port must be an integer between 1 and 65535.");
+        return ExitCode::from(2);
+    };
+    if !require_authorized_target(&target.to_string()) { return ExitCode::from(3); }
+
+    let bind_address = if target.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
+    let socket = match std::net::UdpSocket::bind(bind_address) {
+        Ok(socket) => socket,
+        Err(error) => {
+            eprintln!("Could not create UDP socket: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    let destination = std::net::SocketAddr::new(target, port);
+    if let Err(error) = socket.connect(destination) {
+        eprintln!("Could not select UDP destination {destination}: {error}");
+        return ExitCode::from(1);
+    }
+    if let Err(error) = socket.set_read_timeout(Some(Duration::from_secs(2))) {
+        eprintln!("Could not set UDP receive timeout: {error}");
+        return ExitCode::from(1);
+    }
+
+    const PROBE: &[u8] = b"INFERNEX-UDP-DIAGNOSTIC";
+    println!("INFERNEX native UDP diagnostic");
+    println!("Target: {destination}");
+    if let Err(error) = socket.send(PROBE) {
+        eprintln!("UDP datagram could not be sent: {error}");
+        return ExitCode::from(1);
+    }
+    println!("Sent one { }-byte diagnostic datagram; waiting up to 2 seconds.", PROBE.len());
+    let mut response = [0u8; 512];
+    match socket.recv(&mut response) {
+        Ok(count) => {
+            println!("RESPONSE: received {count} bytes from the selected UDP endpoint.");
+            let sample: String = response[..count].iter().take(160).map(|byte| {
+                if byte.is_ascii_graphic() || *byte == b' ' { *byte as char } else { '.' }
+            }).collect();
+            if !sample.is_empty() { println!("Response sample: {sample}"); }
+            ExitCode::SUCCESS
+        }
+        Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.kind() == io::ErrorKind::TimedOut => {
+            println!("NO RESPONSE: no UDP reply arrived within 2 seconds.");
+            println!("UDP is connectionless; no response does not prove the port is closed.");
+            ExitCode::from(1)
+        }
+        Err(error) => {
+            eprintln!("UDP receive failed: {error}");
+            ExitCode::from(1)
+        }
+    }
 }
 
 // Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
