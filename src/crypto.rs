@@ -551,6 +551,20 @@ pub struct HashManifest {
     pub entries: Vec<FileHashRecord>,
 }
 
+/// A manifest entry that records the algorithm used for this individual file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileHashRecordV2 {
+    pub path: PathBuf,
+    pub algorithm: HashAlgorithm,
+    pub digest: String,
+}
+
+/// A manifest that permits a different supported algorithm for each file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HashManifestV2 {
+    pub entries: Vec<FileHashRecordV2>,
+}
+
 /// Result of checking one entry in a manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestCheck {
@@ -605,6 +619,57 @@ pub fn verify_manifest_report(
     let mismatched = total - matched;
 
     Ok(ManifestVerificationReport { checks, total, matched, mismatched })
+}
+
+/// Create a per-file-algorithm manifest from explicit caller-supplied paths.
+///
+/// Each tuple contains a path and the algorithm to use for that file. Input
+/// order is preserved, and no directory traversal is performed.
+pub fn create_manifest_v2<P: AsRef<Path>>(
+    files: &[(P, HashAlgorithm)],
+) -> Result<HashManifestV2, CryptoError> {
+    let mut entries = Vec::with_capacity(files.len());
+    for (path, algorithm) in files {
+        let path = path.as_ref();
+        entries.push(FileHashRecordV2 {
+            path: path.to_path_buf(),
+            algorithm: *algorithm,
+            digest: hash_file(path, *algorithm)?,
+        });
+    }
+    Ok(HashManifestV2 { entries })
+}
+
+/// Verify a per-file-algorithm manifest and return aggregate counts.
+pub fn verify_manifest_v2_report(
+    manifest: &HashManifestV2,
+) -> Result<ManifestVerificationReport, CryptoError> {
+    let checks = verify_manifest_v2(manifest)?;
+    let total = checks.len();
+    let matched = checks.iter().filter(|check| check.matches).count();
+    let mismatched = total - matched;
+    Ok(ManifestVerificationReport { checks, total, matched, mismatched })
+}
+
+/// Verify each file using the algorithm recorded for that entry.
+///
+/// Results preserve manifest order. Invalid digests and file I/O errors fail
+/// the operation rather than returning a misleading partial report.
+pub fn verify_manifest_v2(
+    manifest: &HashManifestV2,
+) -> Result<Vec<ManifestCheck>, CryptoError> {
+    let mut checks = Vec::with_capacity(manifest.entries.len());
+    for entry in &manifest.entries {
+        validate_digest(entry.algorithm, &entry.digest)?;
+        let actual = hash_file(&entry.path, entry.algorithm)?;
+        checks.push(ManifestCheck {
+            path: entry.path.clone(),
+            expected_digest: entry.digest.clone(),
+            matches: actual.eq_ignore_ascii_case(&entry.digest),
+            actual_digest: actual,
+        });
+    }
+    Ok(checks)
 }
 
 /// Verify every file recorded in a manifest.
@@ -1196,6 +1261,63 @@ mod tests {
 
         let checks = verify_manifest(&manifest).unwrap();
         assert!(checks[0].matches);
+    }
+
+    #[test]
+    fn mixed_algorithm_manifest_verifies_each_file_with_its_recorded_algorithm() {
+        let sha256_file = TestFile::new(b"sha256 content");
+        let sha512_file = TestFile::new(b"sha512 content");
+        let files = [
+            (&sha256_file.path, HashAlgorithm::Sha256),
+            (&sha512_file.path, HashAlgorithm::Sha512),
+        ];
+        let manifest = create_manifest_v2(&files).unwrap();
+
+        assert_eq!(manifest.entries[0].algorithm, HashAlgorithm::Sha256);
+        assert_eq!(manifest.entries[1].algorithm, HashAlgorithm::Sha512);
+        let report = verify_manifest_v2_report(&manifest).unwrap();
+        assert_eq!(report.total, 2);
+        assert_eq!(report.matched, 2);
+        assert_eq!(report.mismatched, 0);
+        assert!(report.checks.iter().all(|check| check.matches));
+    }
+
+    #[test]
+    fn mixed_algorithm_manifest_reports_mismatch_and_rejects_invalid_digest() {
+        let first = TestFile::new(b"before");
+        let second = TestFile::new(b"stable");
+        let files = [
+            (&first.path, HashAlgorithm::Sha256),
+            (&second.path, HashAlgorithm::Sha512),
+        ];
+        let mut manifest = create_manifest_v2(&files).unwrap();
+        fs::write(&first.path, b"after").unwrap();
+
+        let report = verify_manifest_v2_report(&manifest).unwrap();
+        assert_eq!(report.total, 2);
+        assert_eq!(report.matched, 1);
+        assert_eq!(report.mismatched, 1);
+        assert!(!report.checks[0].matches);
+        assert!(report.checks[1].matches);
+
+        manifest.entries[1].digest = "invalid".to_owned();
+        assert!(matches!(
+            verify_manifest_v2(&manifest).unwrap_err(),
+            CryptoError::InvalidDigestLength {
+                algorithm: HashAlgorithm::Sha512,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn mixed_algorithm_manifest_accepts_empty_input() {
+        let manifest = HashManifestV2 { entries: Vec::new() };
+        let report = verify_manifest_v2_report(&manifest).unwrap();
+        assert_eq!(report.total, 0);
+        assert_eq!(report.matched, 0);
+        assert_eq!(report.mismatched, 0);
+        assert!(report.checks.is_empty());
     }
 
 }
