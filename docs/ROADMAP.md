@@ -47,7 +47,7 @@ Status key: `[x]` implemented and validated; `[~]` in progress or platform-limit
 - [x] Single-endpoint UDP diagnostic.
 - [x] Extract networking operations into `src/net.rs` (DNS, TCP connect, UDP exchange, and bounded service identification).
 - [x] Local IPv4/IPv6 interface address inventory via cross-platform OS APIs.
-- [~] Route and default-gateway inventory: Linux IPv4/IPv6 procfs implementation in progress; Windows native API adapter remains planned.
+- [~] Route and default-gateway inventory: Linux IPv4/IPv6 procfs implementation is available; Windows native API adapter remains planned.
 - [ ] DNS record queries (A, AAAA, CNAME, MX, TXT, NS, SOA) with timeouts and clear resolver behavior.
 - [ ] Reverse DNS and forward/reverse consistency checks.
 - [ ] IPv4/IPv6 subnet calculations and safe host-range planning.
@@ -367,7 +367,7 @@ All contributors and coding agents must:
 | P0 | Extract DNS/TCP/UDP/service operations from the CLI into the native networking module | `src/main.rs`, `src/net.rs` | Preserve current CLI behavior, scope checks, timeouts and limits; add loopback tests |
 | P1 | Keep the crypto API documented and covered as new consumers are added | `src/crypto.rs` | Hash and manifest APIs are implemented on `main` |
 | P1 | Define shared error and findings types | `src/core/` | Architecture extraction |
-| P1 | Add interface and route inventory | `src/net/` | Cross-platform API review |
+| P1 | Add the Windows route inventory adapter | `src/net.rs` | Review and test the native Windows route-table API; Linux inventory is implemented |
 | P1 | Expand DNS record queries | `src/net/` | Resolver design |
 | P1 | Add TLS certificate inspection | `src/net/` | Networking module |
 | P1 | Add native HTTP inspection | `src/net/`, `src/web/` | HTTP client design |
