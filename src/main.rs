@@ -141,6 +141,7 @@ fn help() {
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
     println!("  net port <host> <port>         Test one TCP destination port");
+    println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check|info <name>]  List/check/inspect integrations");
@@ -175,13 +176,56 @@ fn net_command(args: &[String]) -> ExitCode {
         [action, cidr] if action == "cidr" => cidr_command(cidr),
         [action, address] if action == "inspect" => inspect_ip_command(address),
         [action, host, port] if action == "port" => net_port_command(host, port),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port>"); ExitCode::from(2) }
+        [action, target, start, end] if action == "scan" => net_scan_command(target, start, end),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port>"); ExitCode::from(2) }
     }
 }
+
+const MAX_SCAN_PORTS: u16 = 256;
+const SCAN_TIMEOUT: Duration = Duration::from_millis(350);
 
 fn parse_tcp_port(value: &str) -> Option<u16> {
     let port = value.parse::<u16>().ok()?;
     (port != 0).then_some(port)
+}
+
+fn parse_scan_range(start_text: &str, end_text: &str) -> Option<(u16, u16)> {
+    let start = parse_tcp_port(start_text)?;
+    let end = parse_tcp_port(end_text)?;
+    if end < start || end - start + 1 > MAX_SCAN_PORTS { return None; }
+    Some((start, end))
+}
+
+// Native, bounded TCP connect scan. Requires one literal IP and caps each run at 256 ports.
+fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> ExitCode {
+    let Ok(target) = target_text.parse::<std::net::IpAddr>() else {
+        eprintln!("Target must be one literal IPv4 or IPv6 address; hostnames and CIDR ranges are not accepted.");
+        return ExitCode::from(2);
+    };
+    let Some((start, end)) = parse_scan_range(start_text, end_text) else {
+        eprintln!("Invalid port range. Use ports 1-65535, ascending, with no more than {MAX_SCAN_PORTS} ports per run.");
+        return ExitCode::from(2);
+    };
+    println!("INFERNEX native TCP scan");
+    println!("Target: {target}");
+    println!("Ports: {start}-{end} ({} total)", end - start + 1);
+    println!("Timeout: {} ms per port; no stealth or evasion techniques", SCAN_TIMEOUT.as_millis());
+    let mut open = 0u16;
+    let mut refused = 0u16;
+    for port in start..=end {
+        let address = std::net::SocketAddr::new(target, port);
+        match TcpStream::connect_timeout(&address, SCAN_TIMEOUT) {
+            Ok(_) => { println!("OPEN       {port}/tcp"); open += 1; }
+            Err(error) => {
+                let label = if error.kind() == io::ErrorKind::ConnectionRefused { refused += 1; "CLOSED" } else { "NO RESPONSE" };
+                println!("{label:10} {port}/tcp");
+            }
+        }
+    }
+    let total = end - start + 1;
+    println!("\nScan complete: {open} open, {refused} refused, {} no response.", total - open - refused);
+    println!("No response can indicate filtering, routing failure, or timeout; it does not prove a port is closed.");
+    ExitCode::SUCCESS
 }
 
 // Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
@@ -667,6 +711,15 @@ fn run_engine(name: &str, args: &[String]) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn scan_range_parser_enforces_bounds_and_limit() {
+        assert_eq!(parse_scan_range("1", "1"), Some((1, 1)));
+        assert_eq!(parse_scan_range("20", "120"), Some((20, 120)));
+        assert_eq!(parse_scan_range("1", "256"), Some((1, 256)));
+        assert_eq!(parse_scan_range("1", "257"), None);
+        assert_eq!(parse_scan_range("100", "99"), None);
+        assert_eq!(parse_scan_range("0", "10"), None);
+        assert_eq!(parse_scan_range("1", "65536"), None);
+    }
     #[test] fn tcp_port_parser_accepts_valid_ports_and_rejects_invalid_values() {
         assert_eq!(parse_tcp_port("1"), Some(1));
         assert_eq!(parse_tcp_port("443"), Some(443));
