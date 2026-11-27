@@ -53,7 +53,11 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-01B — extract network command operations
 
-**Status:** Complete — DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification orchestration are delegated to `src/net.rs`.\n\n### NET-02A — local interface inventory\n\n**Status:** In progress — read-only IPv4/IPv6 interface address inventory is implemented with the cross-platform `if-addrs` OS API wrapper; route/default-gateway inventory remains separate.
+**Status:** Complete — DNS resolution, bounded TCP connect, one-datagram UDP exchange, and bounded service-identification orchestration are delegated to `src/net.rs`.
+
+### NET-02A — local interface inventory
+
+**Status:** In progress — read-only IPv4/IPv6 interface address inventory is implemented with the cross-platform `if-addrs` OS API wrapper; route/default-gateway inventory remains separate.
 
 - Move DNS, TCP, UDP, and service-identification operations behind typed functions in `src/net.rs`.
 - Keep CLI output and authorization-scope checks at the command boundary or pass an explicit authorization decision into the engine.
