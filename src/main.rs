@@ -5,7 +5,8 @@ use sha2::{Digest, Sha256};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
-use std::net::ToSocketAddrs;
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::Duration;
 use std::collections::BTreeSet;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -139,6 +140,7 @@ fn help() {
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
+    println!("  net port <host> <port>         Test one TCP destination port");
     println!("  hash sha256 <file>            Calculate a file SHA-256 digest");
     println!("  hash verify sha256 <file> <expected>  Verify a file digest");
     println!("  engines [check|info <name>]  List/check/inspect integrations");
@@ -172,8 +174,44 @@ fn net_command(args: &[String]) -> ExitCode {
         }
         [action, cidr] if action == "cidr" => cidr_command(cidr),
         [action, address] if action == "inspect" => inspect_ip_command(address),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip>"); ExitCode::from(2) }
+        [action, host, port] if action == "port" => net_port_command(host, port),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port>"); ExitCode::from(2) }
     }
+}
+
+// Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
+fn net_port_command(host: &str, port_text: &str) -> ExitCode {
+    let Ok(port) = port_text.parse::<u16>() else {
+        eprintln!("Port must be an integer between 1 and 65535.");
+        return ExitCode::from(2);
+    };
+    if port == 0 {
+        eprintln!("Port 0 is not a valid destination port.");
+        return ExitCode::from(2);
+    }
+    let addresses: Vec<_> = match (host, port).to_socket_addrs() {
+        Ok(values) => values.collect(),
+        Err(error) => {
+            eprintln!("Could not resolve {host}:{port}: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    if addresses.is_empty() {
+        eprintln!("No destination addresses found for {host}.");
+        return ExitCode::from(1);
+    }
+    println!("Checking one TCP connection to {host}:{port} (2-second timeout per address)...");
+    for address in addresses {
+        match TcpStream::connect_timeout(&address, Duration::from_secs(2)) {
+            Ok(_) => {
+                println!("OPEN: TCP connection succeeded to {address}.");
+                return ExitCode::SUCCESS;
+            }
+            Err(error) => println!("No connection to {address}: {error}"),
+        }
+    }
+    eprintln!("Could not establish a TCP connection to {host}:{port}.");
+    ExitCode::from(1)
 }
 
 fn is_private_ip(ip: std::net::IpAddr) -> bool {
