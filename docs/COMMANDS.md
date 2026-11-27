@@ -23,16 +23,18 @@ The examples below assume the INFERNEX executable is installed as `nex`.
 
 ## Native integrity tools
 
-Calculate a file's SHA-256 digest:
+Calculate SHA-256 or SHA-512 file digests:
 
 ```sh
 nex hash sha256 ./release.zip
+nex hash sha512 ./release.zip
 ```
 
 Verify a file against a trusted, independently obtained checksum:
 
 ```sh
 nex hash verify sha256 ./release.zip <64-character-hex-digest>
+nex hash verify sha512 ./release.zip <128-character-hex-digest>
 ```
 
 A matching digest confirms byte-for-byte consistency with the expected digest. It does not prove who created the file; obtain expected checksums from an authenticated, trusted source.
