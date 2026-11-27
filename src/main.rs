@@ -373,16 +373,35 @@ fn engines_command(args: &[String]) -> ExitCode {
         _ => { eprintln!("Usage: nex engines [check | info <engine>]"); ExitCode::from(2) }
     }
 }
-fn executable_available(exe: &str) -> bool {
-    let path = match env::var_os("PATH") { Some(p) => p, None => return false };
+fn executable_path(exe: &str) -> Option<PathBuf> {
+    let path = env::var_os("PATH")?;
     for dir in env::split_paths(&path) {
         #[cfg(windows)]
         let candidates = vec![dir.join(format!("{exe}.exe")), dir.join(format!("{exe}.cmd")), dir.join(exe)];
         #[cfg(not(windows))]
         let candidates = vec![dir.join(exe)];
-        if candidates.iter().any(|p| p.is_file()) { return true; }
+        if let Some(found) = candidates.into_iter().find(|candidate| candidate.is_file()) {
+            return Some(found);
+        }
     }
-    false
+
+    // The official Windows Nmap installer commonly uses these locations.
+    // Resolve the executable directly so Nmap still works if its installer
+    // did not add the directory to PATH.
+    #[cfg(windows)]
+    if exe.eq_ignore_ascii_case("nmap") {
+        for variable in ["ProgramFiles", "ProgramFiles(x86)"] {
+            if let Some(root) = env::var_os(variable) {
+                let candidate = PathBuf::from(root).join("Nmap").join("nmap.exe");
+                if candidate.is_file() { return Some(candidate); }
+            }
+        }
+    }
+    None
+}
+
+fn executable_available(exe: &str) -> bool {
+    executable_path(exe).is_some()
 }
 fn install_command(args: &[String]) -> ExitCode {
     if args.len() != 1 {
@@ -596,7 +615,11 @@ fn config_path() -> Option<PathBuf> {
 }
 fn run_engine(name: &str, args: &[String]) -> ExitCode {
     let Some(engine) = ENGINES.iter().find(|e| e.name == name) else { eprintln!("Unknown command or engine '{name}'. Run 'nex help' or 'nex engines'."); return ExitCode::from(2); };
-    match Command::new(engine.executable).args(args).status() {
+    let Some(program) = executable_path(engine.executable) else {
+        eprintln!("Engine '{}' is not installed or not discoverable. Run 'nex install {}'.", engine.name, engine.name);
+        return ExitCode::from(127);
+    };
+    match Command::new(program).args(args).status() {
         Ok(s) => ExitCode::from(s.code().unwrap_or(1).clamp(0, 255) as u8),
         Err(e) if e.kind() == io::ErrorKind::NotFound => { eprintln!("Engine '{}' is not installed or not on PATH. Run 'nex install {}'.", engine.name, engine.name); ExitCode::from(127) }
         Err(e) => { eprintln!("Could not start {}: {e}", engine.name); ExitCode::FAILURE }
