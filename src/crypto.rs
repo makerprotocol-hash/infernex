@@ -5,7 +5,7 @@
 //! File contents are read in fixed-size chunks, so memory use is independent of
 //! the size of the input file.
 
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest, Sha256, Sha512};
 use std::fmt;
 use std::fs::File;
