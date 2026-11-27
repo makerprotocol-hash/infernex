@@ -45,7 +45,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-03 — byte-slice digest helper
 
-**Status:** Implemented in open PR #3; maintainer review required.
+**Status:** Merged to main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module.
 
 - Owned file: `src/crypto.rs`.
 - Add/test a public byte-slice hash helper using existing SHA-256/SHA-512 algorithms.
@@ -53,7 +53,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-04 — explicit file integrity manifests
 
-**Status:** Implemented in open PR #4; stacked on PR #3 and requires review after #3.
+**Status:** Open PR #4; CI passed on its submitted head. It is stacked on the former PR #3 base and must be rebased/updated onto current `main` before merge.
 
 - Owned file: `src/crypto.rs`.
 - Build and verify manifests only from explicit caller-supplied file paths.
