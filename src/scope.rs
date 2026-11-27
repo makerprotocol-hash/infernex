@@ -19,6 +19,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
+
 const HEADER: &str = "# INFERNEX authorized scope v1";
 static TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -358,7 +361,14 @@ fn atomic_replace(path: &Path, bytes: &[u8]) -> io::Result<()> {
         let id = TEMP_ID.fetch_add(1, Ordering::Relaxed);
         let candidate = parent.join(format!(".{}.{}.{}.tmp", name.to_string_lossy(),
             std::process::id(), id));
-        match OpenOptions::new().write(true).create_new(true).open(&candidate) {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        // Scope inventories contain authorization decisions. Keep the file
+        // private to the current user on Unix even when the process umask is
+        // permissive; Windows uses the parent directory's inherited ACL.
+        #[cfg(unix)]
+        options.mode(0o600);
+        match options.open(&candidate) {
             Ok(opened) => { temp = Some(candidate); file = Some(opened); break; }
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e),
@@ -509,6 +519,18 @@ mod tests {
         store.remove("LAB.EXAMPLE").unwrap();
         assert_eq!(store.list().unwrap().len(), 1);
         assert!(matches!(store.remove("lab.example"), Err(ScopeError::EntryNotFound(_))));
+        cleanup(&path);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn persisted_scope_file_is_private_to_current_user() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (store, path) = manager("private-mode");
+        store.add("192.0.2.1").unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
         cleanup(&path);
     }
 
