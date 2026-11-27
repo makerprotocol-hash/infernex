@@ -17,7 +17,7 @@ The Rust core now includes:
 - Expanded read-only environment diagnostics, including platform, config, color, and optional-engine status.
 - Read-only configuration inspection that reports the active theme and alias count without exposing alias values.
 - A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
-- Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, and local IP address classification.
+- Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, local IP address classification, and bounded single-port TCP connectivity checks.
 - Native streaming SHA-256 file integrity hashing and checksum verification.
 - Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
 - Optional ANSI color suppression through the standard `NO_COLOR` environment variable.
@@ -46,6 +46,7 @@ nex config show
 nex net resolve example.com
 nex net cidr 192.0.2.17/24
 nex net inspect 192.168.1.10
+nex net port example.com 443
 nex hash sha256 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
 nex engines
@@ -60,7 +61,7 @@ nex metasploit
 nex tshark -i 1
 ```
 
-Engine commands require the corresponding upstream program to be installed and available on PATH. `nex install nmap` can invoke a supported Linux package manager only after displaying the exact command and receiving an explicit `YES`; on Windows it provides official installer guidance. Other engines remain guidance-only.
+Engine commands require the corresponding upstream program to be installed and discoverable. INFERNEX checks PATH and the standard Windows Nmap installation directories. `nex install nmap` can invoke a supported Linux package manager only after displaying the exact command and receiving an explicit `YES`; on Windows it provides official installer guidance. Other engines remain guidance-only.
 
 ## Design principles
 
