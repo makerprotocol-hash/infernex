@@ -145,6 +145,7 @@ fn help() {
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
     println!("  net port <host> <port>         Test one TCP destination port");
     println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
+    println!("  net service <ip> <port>        Identify a service from its banner");
     println!("  scope add|remove <target>      Manage authorized targets");
     println!("  scope list|check <target>      Inspect authorization scope");
     println!("  hash <sha256|sha512> <file>    Calculate a file digest");
