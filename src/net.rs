@@ -1,8 +1,9 @@
 //! Pure networking primitives shared by the CLI and future native network engines.
 //!
-//! This module intentionally contains no network side effects. Active operations
-//! remain in the command layer until their APIs and authorization contracts are
-//! extracted and tested independently.
+//! Pure networking primitives and bounded native operations shared by the CLI.
+//!
+//! Active-operation APIs do not perform authorization themselves: the CLI must
+//! verify explicit target scope before invoking any network side effect.
 
 use std::net::IpAddr;
 
