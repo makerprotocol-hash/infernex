@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
-use std::collections::BTreeSet;
 
 mod crypto;
 mod net;
@@ -261,22 +260,21 @@ fn require_authorized_target(target: &str) -> bool {
 fn net_command(args: &[String]) -> ExitCode {
     match args {
         [action, hostname] if action == "resolve" => {
-            if hostname.is_empty() || hostname.contains('/') || hostname.contains('\\') {
-                eprintln!("Provide a hostname, not a URL or path.");
-                return ExitCode::from(2);
-            }
-            match (hostname.as_str(), 0).to_socket_addrs() {
+            match net::resolve_hostname(hostname) {
+                Ok(addresses) if addresses.is_empty() => {
+                    println!("No addresses returned for {hostname}.");
+                    ExitCode::from(1)
+                }
                 Ok(addresses) => {
-                    let ips: BTreeSet<String> = addresses.map(|a| a.ip().to_string()).collect();
-                    if ips.is_empty() {
-                        println!("No addresses returned for {hostname}.");
-                        return ExitCode::from(1);
-                    }
                     println!("DNS results for {hostname}:");
-                    for ip in ips { println!("  {ip}"); }
+                    for ip in addresses { println!("  {ip}"); }
                     ExitCode::SUCCESS
                 }
-                Err(e) => { eprintln!("DNS resolution failed for {hostname}: {e}"); ExitCode::from(1) }
+                Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
+                    eprintln!("Provide a hostname, not a URL or path.");
+                    ExitCode::from(2)
+                }
+                Err(error) => { eprintln!("DNS resolution failed for {hostname}: {error}"); ExitCode::from(1) }
             }
         }
         [action, cidr] if action == "cidr" => cidr_command(cidr),
@@ -310,7 +308,7 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
     let mut refused = 0u16;
     for port in start..=end {
         let address = std::net::SocketAddr::new(target, port);
-        match TcpStream::connect_timeout(&address, SCAN_TIMEOUT) {
+        match net::tcp_connect(&address, SCAN_TIMEOUT) {
             Ok(_) => { println!("OPEN       {port}/tcp"); open += 1; }
             Err(error) => {
                 let label = if error.kind() == io::ErrorKind::ConnectionRefused { refused += 1; "CLOSED" } else { "NO RESPONSE" };
@@ -336,37 +334,14 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
     };
     if !require_authorized_target(&target.to_string()) { return ExitCode::from(3); }
 
-    let bind_address = if target.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
-    let socket = match std::net::UdpSocket::bind(bind_address) {
-        Ok(socket) => socket,
-        Err(error) => {
-            eprintln!("Could not create UDP socket: {error}");
-            return ExitCode::from(1);
-        }
-    };
     let destination = std::net::SocketAddr::new(target, port);
-    if let Err(error) = socket.connect(destination) {
-        eprintln!("Could not select UDP destination {destination}: {error}");
-        return ExitCode::from(1);
-    }
-    if let Err(error) = socket.set_read_timeout(Some(Duration::from_secs(2))) {
-        eprintln!("Could not set UDP receive timeout: {error}");
-        return ExitCode::from(1);
-    }
-
     const PROBE: &[u8] = b"INFERNEX-UDP-DIAGNOSTIC";
     println!("INFERNEX native UDP diagnostic");
     println!("Target: {destination}");
-    if let Err(error) = socket.send(PROBE) {
-        eprintln!("UDP datagram could not be sent: {error}");
-        return ExitCode::from(1);
-    }
-    println!("Sent one {}-byte diagnostic datagram; waiting up to 2 seconds.", PROBE.len());
-    let mut response = [0u8; 512];
-    match socket.recv(&mut response) {
-        Ok(count) => {
-            println!("RESPONSE: received {count} bytes from the selected UDP endpoint.");
-            let sample: String = response[..count].iter().take(160).map(|byte| {
+    match net::udp_exchange(destination, PROBE, Duration::from_secs(2), 512) {
+        Ok(response) => {
+            println!("RESPONSE: received {} bytes from the selected UDP endpoint.", response.len());
+            let sample: String = response.iter().take(160).map(|byte| {
                 if byte.is_ascii_graphic() || *byte == b' ' { *byte as char } else { '.' }
             }).collect();
             if !sample.is_empty() { println!("Response sample: {sample}"); }
@@ -378,7 +353,7 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
             ExitCode::from(1)
         }
         Err(error) => {
-            eprintln!("UDP receive failed: {error}");
+            eprintln!("UDP diagnostic failed: {error}");
             ExitCode::from(1)
         }
     }
@@ -468,7 +443,7 @@ fn net_port_command(host: &str, port_text: &str) -> ExitCode {
     }
     println!("Checking one TCP connection to {host}:{port} (2-second timeout per address)...");
     for address in addresses {
-        match TcpStream::connect_timeout(&address, Duration::from_secs(2)) {
+        match net::tcp_connect(&address, Duration::from_secs(2)) {
             Ok(_) => {
                 println!("OPEN: TCP connection succeeded to {address}.");
                 return ExitCode::SUCCESS;
