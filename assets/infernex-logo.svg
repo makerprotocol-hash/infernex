@@ -1,19 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-<title id="title">INFERNEX portal emblem</title><desc id="desc">An original glowing circular portal emblem in crimson and deep orange.</desc>
+<title id="title">INFERNEX signature X logo</title>
+<desc id="desc">The INFERNEX signature angular red-orange X, framed by a glowing circular portal.</desc>
 <defs>
- <radialGradient id="bg"><stop offset="0" stop-color="#240b13"/><stop offset="1" stop-color="#09070b"/></radialGradient>
- <linearGradient id="ring" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#ff3b22"/><stop offset=".48" stop-color="#ff7a18"/><stop offset="1" stop-color="#ff244f"/></linearGradient>
+ <linearGradient id="x" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff9b25"/><stop offset=".48" stop-color="#ff3b19"/><stop offset="1" stop-color="#d90025"/></linearGradient>
+ <radialGradient id="bg"><stop stop-color="#251015"/><stop offset="1" stop-color="#030407"/></radialGradient>
  <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
- <radialGradient id="core"><stop stop-color="#ff6a25" stop-opacity=".24"/><stop offset="1" stop-color="#120911" stop-opacity=".95"/></radialGradient>
 </defs>
-<rect width="512" height="512" rx="104" fill="url(#bg)"/>
-<circle cx="256" cy="232" r="157" fill="none" stroke="#7d1d29" stroke-width="2" opacity=".5"/>
-<circle cx="256" cy="232" r="132" fill="url(#core)" stroke="url(#ring)" stroke-width="13" filter="url(#glow)"/>
-<circle cx="256" cy="232" r="108" fill="none" stroke="#ff8b31" stroke-width="2" stroke-dasharray="4 12" opacity=".9"/>
-<path d="M256 115 C310 146 337 185 337 232 C337 279 310 318 256 349 C202 318 175 279 175 232 C175 185 202 146 256 115Z" fill="none" stroke="url(#ring)" stroke-width="5" filter="url(#glow)"/>
-<path d="M208 232h96M256 184v96" stroke="#ff9a42" stroke-width="3" opacity=".85"/>
-<circle cx="256" cy="232" r="19" fill="#ff6a2b" filter="url(#glow)"/>
-<path d="M145 390h222" stroke="#ff4b2a" stroke-width="3" opacity=".7"/>
-<text x="256" y="435" fill="#fff1e9" font-family="Arial,sans-serif" font-size="39" font-weight="800" letter-spacing="5" text-anchor="middle">INFERNEX</text>
-<text x="256" y="465" fill="#ff8a52" font-family="Arial,sans-serif" font-size="12" letter-spacing="4" text-anchor="middle">NATIVE SECURITY ENGINE</text>
+<rect width="512" height="512" rx="100" fill="url(#bg)"/>
+<circle cx="256" cy="242" r="194" fill="none" stroke="#8b1a20" stroke-width="3" opacity=".8"/>
+<circle cx="256" cy="242" r="174" fill="none" stroke="url(#x)" stroke-width="8" stroke-dasharray="270 22 72 22" filter="url(#glow)"/>
+<circle cx="256" cy="242" r="150" fill="none" stroke="#ff8b27" stroke-width="2" stroke-dasharray="5 15" opacity=".8"/>
+<path d="M116 100L220 218L256 36L292 218L396 100L321 252L396 390L292 285L256 476L220 285L116 390L191 252Z" fill="url(#x)" stroke="#ff5a20" stroke-width="5" filter="url(#glow)"/>
+<path d="M176 119L242 225L256 164L270 225L336 119L289 251L336 359L270 278L256 338L242 278L176 359L223 251Z" fill="#180b10" opacity=".82"/>
+<path d="M256 164L269 239L348 251L269 264L256 338L243 264L164 251L243 239Z" fill="#ff9a31" opacity=".92" filter="url(#glow)"/>
+<text x="256" y="505" fill="#fff0e8" font-family="Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="6" text-anchor="middle">INFERNEX</text>
 </svg>
