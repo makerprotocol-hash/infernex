@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::io::Read;
 
-use std::io::{self};
+use std::io;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 use std::net::ToSocketAddrs;
@@ -393,7 +393,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     } else {
         let printable: String = banner.iter().take(160).map(|byte| {
             if byte.is_ascii_graphic() || *byte == b' ' { *byte as char }
-            else if *byte == b'\\r' || *byte == b'\\n' { ' ' }
+            else if *byte == b'\r' || *byte == b'\n' { ' ' }
             else { '.' }
         }).collect();
         println!("Banner sample: {printable}");
