@@ -1,6 +1,6 @@
 # NET-02B — Route and default-gateway inventory
 
-**Status:** Design proposal — implementation has not started.
+**Status:** Partially implemented on main — Linux IPv4/IPv6 route inventory is available; Windows native route enumeration remains planned.
 **Owner:** Core maintainer.
 **Target platforms:** Windows and Linux.
 
@@ -18,16 +18,19 @@ Extend the existing read-only `net interfaces` inventory with a separate command
 
 ## Platform implementation review
 
-### Linux
+### Linux — implemented
 
-- Prefer a reviewed native route API (for example, rtnetlink) if its dependency and maintenance profile are acceptable.
-- A `/proc/net/route` and `/proc/net/ipv6_route` parser may be considered as a dependency-free fallback, but it must handle hexadecimal fields, little-endian IPv4 gateway encoding, IPv6 prefixes, metrics, malformed rows, and missing procfs files explicitly.
+- Read-only snapshots are parsed from `/proc/net/route` and `/proc/net/ipv6_route`; no dependency or external command is required.
+- IPv4 destination, gateway and mask fields are decoded from the kernel's little-endian hexadecimal representation; route metrics are parsed in their procfs decimal representation.
+- IPv6 destination prefixes, next hops, metrics and interface names are parsed from fixed-width procfs fields.
+- Malformed rows, invalid prefix lengths, non-contiguous IPv4 masks, and missing procfs files return explicit errors.
 - Do not parse human-formatted output from `ip route` or shell out to external utilities.
 
-### Windows
+### Windows — planned
 
-- Use the Windows IP Helper routing-table API (`GetIpForwardTable2` / `FreeMibTable`) through a narrowly scoped, reviewed FFI or approved Windows API crate.
+- Add the Windows IP Helper routing-table API (`GetIpForwardTable2` / `FreeMibTable`) through a narrowly scoped, reviewed FFI or approved Windows API crate.
 - Correctly handle IPv4 and IPv6 rows, interface indices, next-hop addresses, route metrics, API errors, and allocation cleanup.
+- Until this adapter is implemented, `nex net routes` returns an explicit unsupported-platform error on Windows.
 - Do not parse localized `route print` output or invoke PowerShell/cmd.
 
 ## Dependency and safety constraints
@@ -39,7 +42,7 @@ Extend the existing read-only `net interfaces` inventory with a separate command
 
 ## Acceptance criteria
 
-1. Windows and Linux implementations return the same documented route model.
+1. Linux implementation returns the documented route model; Windows parity is a remaining requirement.
 2. IPv4 and IPv6 default routes are represented correctly.
 3. Multiple default routes and route metrics are preserved rather than silently collapsed.
 4. Missing permissions, unavailable APIs, absent procfs files, malformed records, and unsupported fields produce explicit, non-panicking outcomes.
