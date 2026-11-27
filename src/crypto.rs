@@ -153,6 +153,17 @@ pub fn hash_file<P: AsRef<Path>>(
     path: P,
     algorithm: HashAlgorithm,
 ) -> Result<String, CryptoError> {
+    hash_file_raw(path, algorithm).map(|digest| encode_hex(&digest))
+}
+
+/// Hash a file and return the raw digest bytes.
+///
+/// SHA-256 returns 32 bytes and SHA-512 returns 64 bytes. The file is read
+/// incrementally using the fixed 64 KiB buffer.
+pub fn hash_file_raw<P: AsRef<Path>>(
+    path: P,
+    algorithm: HashAlgorithm,
+) -> Result<Vec<u8>, CryptoError> {
     let path = path.as_ref();
     let mut file = File::open(path).map_err(|source| CryptoError::Io {
         path: path.to_path_buf(),
@@ -548,13 +559,24 @@ pub fn hash_reader<R: Read>(
     reader: &mut R,
     algorithm: HashAlgorithm,
 ) -> io::Result<String> {
+    hash_reader_raw(reader, algorithm).map(|digest| encode_hex(&digest))
+}
+
+/// Hash any reader and return raw digest bytes without buffering the full input.
+///
+/// SHA-256 returns 32 bytes and SHA-512 returns 64 bytes. Interrupted reads
+/// are retried, and other I/O errors are returned unchanged.
+pub fn hash_reader_raw<R: Read>(
+    reader: &mut R,
+    algorithm: HashAlgorithm,
+) -> io::Result<Vec<u8>> {
     match algorithm {
         HashAlgorithm::Sha256 => hash_reader_with_digest::<Sha256, _>(reader),
         HashAlgorithm::Sha512 => hash_reader_with_digest::<Sha512, _>(reader),
     }
 }
 
-fn hash_reader_with_digest<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<String> {
+fn hash_reader_with_digest<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<Vec<u8>> {
     let mut hasher = D::default();
     let mut buffer = [0u8; HASH_BUFFER_SIZE];
 
@@ -567,7 +589,7 @@ fn hash_reader_with_digest<D: Digest + Default, R: Read>(reader: &mut R) -> io::
         }
     }
 
-    Ok(digest_to_hex(hasher.finalize()))
+    Ok(hasher.finalize().to_vec())
 }
 
 /// A reusable, in-memory manifest entry for one file.
@@ -762,6 +784,48 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.directory);
         }
+    }
+
+    #[test]
+    fn raw_reader_and_file_hashes_match_hex_apis() {
+        use std::io::Cursor;
+
+        let bytes: Vec<u8> = (0..(HASH_BUFFER_SIZE * 2 + 73))
+            .map(|index| (index % 239) as u8)
+            .collect();
+        let file = TestFile::new(&bytes);
+
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            let mut reader = Cursor::new(bytes.as_slice());
+            let reader_digest = hash_reader_raw(&mut reader, algorithm).unwrap();
+            let file_digest = hash_file_raw(&file.path, algorithm).unwrap();
+            let expected_len = match algorithm {
+                HashAlgorithm::Sha256 => 32,
+                HashAlgorithm::Sha512 => 64,
+            };
+
+            assert_eq!(reader_digest.len(), expected_len);
+            assert_eq!(file_digest, reader_digest);
+            assert_eq!(encode_hex(&reader_digest), hash_reader(&mut Cursor::new(&bytes), algorithm).unwrap());
+            assert_eq!(encode_hex(&file_digest), hash_file(&file.path, algorithm).unwrap());
+        }
+    }
+
+    #[test]
+    fn raw_reader_hash_handles_empty_input_and_reader_errors() {
+        use std::io::Cursor;
+
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            let digest = hash_reader_raw(&mut Cursor::new([]), algorithm).unwrap();
+            assert_eq!(digest.len(), match algorithm {
+                HashAlgorithm::Sha256 => 32,
+                HashAlgorithm::Sha512 => 64,
+            });
+            assert_eq!(encode_hex(&digest), hash_bytes(&[], algorithm));
+        }
+
+        let error = hash_reader_raw(&mut FailingReader, HashAlgorithm::Sha256).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     }
 
     #[test]
