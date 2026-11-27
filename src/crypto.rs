@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn byte_slice_hashes_match_streamed_file_hashes() {
-        let bytes = [0, 0xff, 0x80, b'\\n', 0x7f, 0, 42];
+        let bytes = [0, 0xff, 0x80, b'\n', 0x7f, 0, 42];
         let file = TestFile::new(&bytes);
         for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
             assert_eq!(
