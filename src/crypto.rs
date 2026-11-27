@@ -5,6 +5,7 @@
 //! File contents are read in fixed-size chunks, so memory use is independent of
 //! the size of the input file.
 
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::{Digest, Sha256, Sha512};
 use std::fmt;
 use std::fs::File;
@@ -202,6 +203,34 @@ pub fn hash_bytes_raw(data: &[u8], algorithm: HashAlgorithm) -> Vec<u8> {
         HashAlgorithm::Sha256 => Sha256::digest(data).to_vec(),
         HashAlgorithm::Sha512 => Sha512::digest(data).to_vec(),
     }
+}
+
+
+/// Compute an HMAC-SHA-256 authentication tag.
+///
+/// HMAC accepts keys of any length, including an empty key. Callers are
+/// responsible for generating and storing keys securely.
+pub fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    let mut mac = Hmac::<Sha256>::new_from_slice(key)
+        .expect("HMAC accepts keys of any length");
+    mac.update(message);
+    let tag = mac.finalize().into_bytes();
+    let mut output = [0u8; 32];
+    output.copy_from_slice(&tag);
+    output
+}
+
+/// Verify an HMAC-SHA-256 tag using the crate's constant-time verification.
+///
+/// Tags with any length other than 32 bytes are rejected.
+pub fn verify_hmac_sha256(key: &[u8], message: &[u8], expected: &[u8]) -> bool {
+    if expected.len() != 32 {
+        return false;
+    }
+    let mut mac = Hmac::<Sha256>::new_from_slice(key)
+        .expect("HMAC accepts keys of any length");
+    mac.update(message);
+    mac.verify_slice(expected).is_ok()
 }
 
 /// Encode arbitrary bytes as lowercase hexadecimal text.
@@ -1506,6 +1535,42 @@ mod tests {
         assert_eq!(report.matched, 0);
         assert_eq!(report.mismatched, 0);
         assert!(report.checks.is_empty());
+    }
+
+
+    #[test]
+    fn hmac_sha256_matches_rfc_4231_test_vectors() {
+        let cases: [(&[u8], &[u8], &str); 5] = [
+            (&[0x0b; 20], b"Hi There", "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"),
+            (b"Jefe", b"what do ya want for nothing?", "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"),
+            (&[0xaa; 20], &[0xdd; 50], "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe"),
+            (&[0xaa; 131], b"Test Using Larger Than Block-Size Key - Hash Key First", "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54"),
+            (&[0xaa; 131], b"This is a test using a larger than block-size key and a larger than block-size data. The key needs to be hashed before being used by the HMAC algorithm.", "9b09ffa71b942fcb27635fbcd5b0e944bfdc63644f0713938a7f51535c3a35e2"),
+        ];
+        for (key, message, expected_hex) in cases {
+            let tag = hmac_sha256(key, message);
+            assert_eq!(encode_hex(&tag), expected_hex);
+            assert!(verify_hmac_sha256(key, message, &tag));
+        }
+    }
+
+    #[test]
+    fn hmac_sha256_rejects_wrong_key_message_and_tag_length() {
+        let key = b"test key";
+        let message = b"authenticated message";
+        let tag = hmac_sha256(key, message);
+
+        assert!(!verify_hmac_sha256(b"wrong key", message, &tag));
+        assert!(!verify_hmac_sha256(key, b"modified message", &tag));
+        assert!(!verify_hmac_sha256(key, message, &tag[..31]));
+        assert!(!verify_hmac_sha256(key, message, &[0u8; 33]));
+    }
+
+    #[test]
+    fn hmac_sha256_supports_an_empty_key() {
+        let tag = hmac_sha256(b"", b"message");
+        assert_eq!(tag.len(), 32);
+        assert!(verify_hmac_sha256(b"", b"message", &tag));
     }
 
 }
