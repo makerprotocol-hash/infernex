@@ -39,6 +39,14 @@ A matching digest confirms byte-for-byte consistency with the expected digest. I
 
 ## Native network diagnostics
 
+Scan a bounded range of TCP ports on one explicitly supplied IP address:
+
+```sh
+nex net scan 192.0.2.10 1 128
+```
+
+The native connect scanner accepts a literal IPv4 or IPv6 address (not a hostname or CIDR), scans at most 256 consecutive ports per invocation, and uses a 350 ms timeout per port. It reports successful connections as `OPEN`, connection refusals as `CLOSED`, and other failures as `NO RESPONSE`. A no-response result is inconclusive and may reflect filtering or routing. This is a straightforward TCP connect scan with no stealth or evasion behavior. Only use it against systems you own or have explicit permission to assess.
+
 Resolve a hostname through the system-configured DNS resolver:
 
 ```sh
