@@ -1,17 +1,17 @@
 # INFERNEX
 
-**One command environment. Familiar security-tool syntax. Original tools.**
+**One native cybersecurity platform. One command environment. Built by us.**
 
 INFERNEX is a Windows- and Linux-oriented cybersecurity command environment for authorized security research, defensive assessment, and lab work.
 
-The executable is **`nex`**. The goal is to build a native-first security command environment. Optional third-party adapters may remain for compatibility, but native INFERNEX modules are the product foundation.
+The executable is **`nex`**. INFERNEX is being developed as an all-in-one, native-first cybersecurity platform: networking, cryptography, diagnostics and future defensive security modules will be implemented in Rust in this project. Optional third-party adapters are secondary compatibility features, not requirements.
 
 ## Current status
 
 The Rust core now includes:
 - An interactive prompt when launched with `nex`.
 - One-shot commands such as `nex help` and `nex nmap -sV <authorized-target>`.
-- A small registry of optional external engine adapters.
+- A small legacy registry of optional external adapters (not required by native commands).
 - Engine availability checks through `nex engines check`.
 - Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
 - Expanded read-only environment diagnostics, including platform, config, color, and optional-engine status.
@@ -81,4 +81,4 @@ Engine commands require the corresponding upstream program to be installed and d
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-The core license and third-party redistribution policy will be finalized before a public release.
+The core license and third-party redistribution policy will be finalized before a public release. The roadmap prioritizes original INFERNEX implementations; feature parity with established suites is not claimed.
