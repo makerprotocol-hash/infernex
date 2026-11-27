@@ -10,6 +10,7 @@ use std::time::Duration;
 use std::collections::BTreeSet;
 
 mod crypto;
+mod net;
 mod scope;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -237,20 +238,7 @@ fn net_command(args: &[String]) -> ExitCode {
     }
 }
 
-const MAX_SCAN_PORTS: u16 = 256;
 const SCAN_TIMEOUT: Duration = Duration::from_millis(350);
-
-fn parse_tcp_port(value: &str) -> Option<u16> {
-    let port = value.parse::<u16>().ok()?;
-    (port != 0).then_some(port)
-}
-
-fn parse_scan_range(start_text: &str, end_text: &str) -> Option<(u16, u16)> {
-    let start = parse_tcp_port(start_text)?;
-    let end = parse_tcp_port(end_text)?;
-    if end < start || end - start + 1 > MAX_SCAN_PORTS { return None; }
-    Some((start, end))
-}
 
 // Native, bounded TCP connect scan. Requires one literal IP and caps each run at 256 ports.
 fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> ExitCode {
@@ -258,7 +246,7 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
         eprintln!("Target must be one literal IPv4 or IPv6 address; hostnames and CIDR ranges are not accepted.");
         return ExitCode::from(2);
     };
-    let Some((start, end)) = parse_scan_range(start_text, end_text) else {
+    let Some((start, end)) = net::parse_scan_range(start_text, end_text) else {
         eprintln!("Invalid port range. Use ports 1-65535, ascending, with no more than {MAX_SCAN_PORTS} ports per run.");
         return ExitCode::from(2);
     };
@@ -350,21 +338,6 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
 const SERVICE_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_BANNER_BYTES: usize = 512;
 
-fn classify_service_banner(port: u16, banner: &[u8]) -> &'static str {
-    let text = String::from_utf8_lossy(banner).trim_start().to_ascii_uppercase();
-    if text.starts_with("SSH-") { "SSH" }
-    else if text.starts_with("HTTP/") || text.starts_with("HTTP ") { "HTTP" }
-    else if text.starts_with("+OK") { "POP3" }
-    else if text.starts_with("* OK") { "IMAP" }
-    else if text.starts_with("+PONG") || text.starts_with("-NOAUTH") || text.starts_with("-ERR") {
-        "Redis-compatible RESP"
-    }
-    else if text.starts_with("220") && (port == 21 || text.contains("FTP")) { "FTP" }
-    else if text.starts_with("220") && (port == 25 || port == 465 || port == 587 || text.contains("SMTP") || text.contains("ESMTP")) { "SMTP" }
-    else if text.starts_with("220") { "Unclassified 220 greeting" }
-    else { "Unknown / no recognizable banner" }
-}
-
 fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     let Ok(target) = target_text.parse::<std::net::IpAddr>() else {
         eprintln!("Service identification requires one literal IPv4 or IPv6 address.");
@@ -409,7 +382,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
         }
     };
     banner.truncate(count);
-    let service = classify_service_banner(port, &banner);
+    let service = net::classify_service_banner(port, &banner);
     println!("Identified protocol: {service}");
     if banner.is_empty() {
         println!("No readable application banner was received; this result is inconclusive.");
@@ -456,20 +429,6 @@ fn net_port_command(host: &str, port_text: &str) -> ExitCode {
     ExitCode::from(1)
 }
 
-fn is_private_ip(ip: std::net::IpAddr) -> bool {
-    match ip {
-        std::net::IpAddr::V4(address) => address.is_private(),
-        std::net::IpAddr::V6(address) => (address.segments()[0] & 0xfe00) == 0xfc00,
-    }
-}
-
-fn is_link_local_ip(ip: std::net::IpAddr) -> bool {
-    match ip {
-        std::net::IpAddr::V4(address) => address.is_link_local(),
-        std::net::IpAddr::V6(address) => (address.segments()[0] & 0xffc0) == 0xfe80,
-    }
-}
-
 fn inspect_ip_command(value: &str) -> ExitCode {
     let Ok(ip) = value.parse::<std::net::IpAddr>() else {
         eprintln!("Invalid IP address: '{value}'. Provide a plain IPv4 or IPv6 address.");
@@ -478,8 +437,8 @@ fn inspect_ip_command(value: &str) -> ExitCode {
     println!("Address: {ip}");
     println!("Family: {}", if ip.is_ipv4() { "IPv4" } else { "IPv6" });
     println!("Loopback: {}", ip.is_loopback());
-    println!("Private: {}", is_private_ip(ip));
-    println!("Link-local: {}", is_link_local_ip(ip));
+    println!("Private: {}", net::is_private_ip(ip));
+    println!("Link-local: {}", net::is_link_local_ip(ip));
     println!("Multicast: {}", ip.is_multicast());
     println!("Unspecified: {}", ip.is_unspecified());
     match ip {
@@ -932,14 +891,14 @@ mod tests {
 
     #[test]
     fn service_fingerprinting_uses_banner_not_port_number() {
-        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\r\n"), "SSH");
-        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\r\n"), "HTTP");
-        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\r\n"), "POP3");
-        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\r\n"), "SMTP");
-        assert_eq!(classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
+        assert_eq!(net::classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\r\n"), "SSH");
+        assert_eq!(net::classify_service_banner(22, b"HTTP/1.1 200 OK\r\n"), "HTTP");
+        assert_eq!(net::classify_service_banner(12345, b"+OK POP3 ready\r\n"), "POP3");
+        assert_eq!(net::classify_service_banner(25, b"220 mail.example ESMTP ready\r\n"), "SMTP");
+        assert_eq!(net::classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
     }
     #[test] fn scan_range_parser_enforces_bounds_and_limit() {
-        assert_eq!(parse_scan_range("1", "1"), Some((1, 1)));
+        assert_eq!(net::parse_scan_range("1", "1"), Some((1, 1)));
         assert_eq!(parse_scan_range("20", "120"), Some((20, 120)));
         assert_eq!(parse_scan_range("1", "256"), Some((1, 256)));
         assert_eq!(parse_scan_range("1", "257"), None);
@@ -948,7 +907,7 @@ mod tests {
         assert_eq!(parse_scan_range("1", "65536"), None);
     }
     #[test] fn tcp_port_parser_accepts_valid_ports_and_rejects_invalid_values() {
-        assert_eq!(parse_tcp_port("1"), Some(1));
+        assert_eq!(net::parse_tcp_port("1"), Some(1));
         assert_eq!(parse_tcp_port("443"), Some(443));
         assert_eq!(parse_tcp_port("65535"), Some(65535));
         assert_eq!(parse_tcp_port("0"), None);
@@ -979,23 +938,23 @@ mod tests {
         let private: std::net::IpAddr = "192.168.1.10".parse().unwrap();
         let public_example: std::net::IpAddr = "203.0.113.10".parse().unwrap();
         assert!(loopback.is_loopback());
-        assert!(is_private_ip(private));
-        assert!(!is_private_ip(public_example));
+        assert!(net::is_private_ip(private));
+        assert!(!net::is_private_ip(public_example));
     }
     #[test] fn ip_inspection_supports_ipv6_classification() {
         let loopback: std::net::IpAddr = "::1".parse().unwrap();
         let unique_local: std::net::IpAddr = "fd00::1".parse().unwrap();
         assert!(loopback.is_loopback());
-        assert!(is_private_ip(unique_local));
+        assert!(net::is_private_ip(unique_local));
     }
     #[test] fn ip_inspection_detects_ipv4_link_local() {
         let address: std::net::IpAddr = "169.254.10.20".parse().unwrap();
-        assert!(is_link_local_ip(address));
+        assert!(net::is_link_local_ip(address));
     }
     #[test] fn ip_inspection_detects_ipv6_link_local_and_unique_local() {
         let link_local: std::net::IpAddr = "fe80::1".parse().unwrap();
         let unique_local: std::net::IpAddr = "fd12::1".parse().unwrap();
-        assert!(is_link_local_ip(link_local));
+        assert!(net::is_link_local_ip(link_local));
         assert!(!is_link_local_ip(unique_local));
         assert!(is_private_ip(unique_local));
     }
