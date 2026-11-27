@@ -77,8 +77,7 @@ fn repl() -> ExitCode {
         let words = match tokenize(line) { Ok(w) => w, Err(e) => { eprintln!("Command syntax error: {e}"); continue; } };
         if words.is_empty() { continue; }
         if matches!(words[0].as_str(), "exit" | "quit") { break; }
-        let status = dispatch(&words);
-        if !status.success() { println!("Command finished with status: {}", status.code().unwrap_or(1)); }
+        let _status = dispatch(&words);
     }
     ExitCode::SUCCESS
 }
@@ -177,6 +176,20 @@ fn net_command(args: &[String]) -> ExitCode {
     }
 }
 
+fn is_private_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(address) => address.is_private(),
+        std::net::IpAddr::V6(address) => (address.segments()[0] & 0xfe00) == 0xfc00,
+    }
+}
+
+fn is_link_local_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(address) => address.is_link_local(),
+        std::net::IpAddr::V6(address) => (address.segments()[0] & 0xffc0) == 0xfe80,
+    }
+}
+
 fn inspect_ip_command(value: &str) -> ExitCode {
     let Ok(ip) = value.parse::<std::net::IpAddr>() else {
         eprintln!("Invalid IP address: '{value}'. Provide a plain IPv4 or IPv6 address.");
@@ -185,8 +198,8 @@ fn inspect_ip_command(value: &str) -> ExitCode {
     println!("Address: {ip}");
     println!("Family: {}", if ip.is_ipv4() { "IPv4" } else { "IPv6" });
     println!("Loopback: {}", ip.is_loopback());
-    println!("Private: {}", ip.is_private());
-    println!("Link-local: {}", ip.is_link_local());
+    println!("Private: {}", is_private_ip(ip));
+    println!("Link-local: {}", is_link_local_ip(ip));
     println!("Multicast: {}", ip.is_multicast());
     println!("Unspecified: {}", ip.is_unspecified());
     match ip {
@@ -614,14 +627,25 @@ mod tests {
         let private: std::net::IpAddr = "192.168.1.10".parse().unwrap();
         let public_example: std::net::IpAddr = "203.0.113.10".parse().unwrap();
         assert!(loopback.is_loopback());
-        assert!(private.is_private());
-        assert!(!public_example.is_private());
+        assert!(is_private_ip(private));
+        assert!(!is_private_ip(public_example));
     }
     #[test] fn ip_inspection_supports_ipv6_classification() {
         let loopback: std::net::IpAddr = "::1".parse().unwrap();
         let unique_local: std::net::IpAddr = "fd00::1".parse().unwrap();
         assert!(loopback.is_loopback());
-        assert!(unique_local.is_private());
+        assert!(is_private_ip(unique_local));
+    }
+    #[test] fn ip_inspection_detects_ipv4_link_local() {
+        let address: std::net::IpAddr = "169.254.10.20".parse().unwrap();
+        assert!(is_link_local_ip(address));
+    }
+    #[test] fn ip_inspection_detects_ipv6_link_local_and_unique_local() {
+        let link_local: std::net::IpAddr = "fe80::1".parse().unwrap();
+        let unique_local: std::net::IpAddr = "fd12::1".parse().unwrap();
+        assert!(is_link_local_ip(link_local));
+        assert!(!is_link_local_ip(unique_local));
+        assert!(is_private_ip(unique_local));
     }
     #[test] fn cidr_v4_calculates_network_boundaries() {
         let ip = std::net::Ipv4Addr::new(192, 0, 2, 17);
