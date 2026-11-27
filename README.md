@@ -1,46 +1,65 @@
 # INFERNEX
 
-**One native cybersecurity platform. One command environment. Built by us.**
+**A native cybersecurity platform. One command environment. Built in Rust.**
 
-INFERNEX is a Windows- and Linux-oriented cybersecurity command environment for authorized security research, defensive assessment, and lab work.
+INFERNEX is an all-in-one command-line platform for authorized security research, defensive assessment and lab work. Its executable is `nex`.
 
-The executable is **`nex`**. INFERNEX is being developed as an all-in-one, native-first cybersecurity platform: networking, cryptography, diagnostics and future defensive security modules will be implemented in Rust in this project. Optional third-party adapters are secondary compatibility features, not requirements.
+Our direction is to build the capabilities ourselves inside this project: networking, cryptography, file integrity, diagnostics and defensive security modules. Native commands must work without separately installed security suites. Optional compatibility adapters may exist, but they are not the product's foundation.
 
-## Current status
+## Project status
 
-The Rust core now includes:
-- An interactive prompt when launched with `nex`.
-- One-shot commands such as `nex help` and `nex nmap -sV <authorized-target>`.
-- A small legacy registry of optional external adapters (not required by native commands).
-- Engine availability checks through `nex engines check`.
-- Persistent terminal themes (`ember`, `spectrum`, `mono`) applied to the interactive prompt.
-- Expanded read-only environment diagnostics, including platform, config, color, and optional-engine status.
-- Read-only configuration inspection that reports the active theme and alias count without exposing alias values.
-- A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
-- Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, local IP address classification, bounded single-port TCP connectivity checks, and a native TCP connect scanner limited to 256 ports per invocation.
-- Native streaming SHA-256 and SHA-512 file integrity hashing and checksum verification.
-- Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
-- Optional ANSI color suppression through the standard `NO_COLOR` environment variable.
-- Initial unit tests and Windows/Linux CI configuration.
+INFERNEX is an early, actively developed foundation—not yet a complete security suite.
 
-This is an early foundation. External engines are **not bundled or automatically installed**. Themes currently style the interactive prompt; full terminal-wide theming is still future work. The installer, updater, and additional original security modules remain future work.
+### Native capabilities currently implemented
+
+- Interactive command prompt and one-shot CLI.
+- Persistent aliases with bounded expansion and argument-preserving behavior.
+- Prompt themes and `NO_COLOR` support.
+- Read-only configuration and environment diagnostics.
+- System DNS hostname resolution.
+- Offline IPv4/IPv6 CIDR calculations and IP address classification.
+- Single-port TCP connectivity diagnostics.
+- Bounded native TCP connect scanning: one literal IP address and at most 256 consecutive ports per invocation.
+- Streaming SHA-256 and SHA-512 file hashing and checksum verification.
+
+### In development / planned
+
+- Native networking module and protocol-aware service identification.
+- User-maintained authorization scope and asset inventory.
+- Native cryptography module expansion, including a reviewed authenticated file-encryption design.
+- Unified structured output and additional defensive modules.
+- Packaging, installer and update workflow.
+
+A planned feature is not an implemented feature. See the command reference for what works today.
+
+## Native-first principles
+
+- Implement core capabilities in this repository; do not require Nmap, Metasploit, Wireshark, SQLmap or other external security programs for native commands.
+- Prefer small, independently testable Rust modules with documented APIs.
+- Validate inputs and use bounded memory, timeouts and resource limits.
+- Make active network operations explicit and scope-aware.
+- Use established cryptographic constructions; never invent ciphers.
+- Support Windows and Linux, documenting platform limitations.
+- Do not claim parity with mature security suites without evidence.
 
 ## Build from source
 
 Install the stable Rust toolchain, then run:
 
-```powershell
-cargo build --release
+```sh
+cargo fmt --check
 cargo test --all-targets
+cargo build --release
 ```
 
 The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
 
-## First commands
+## Native commands
 
 ```text
 nex
 nex help
+nex version
 nex doctor
 nex config show
 nex net resolve example.com
@@ -52,33 +71,26 @@ nex hash sha256 ./download.zip
 nex hash sha512 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
 nex hash verify sha512 ./download.zip <expected-128-character-hex>
-nex engines
-nex engines check
 nex theme list
 nex theme set ember
-nex alias add quickscan nmap -sV 192.0.2.10
 nex alias list
-nex quickscan
-nex nmap -sV 192.0.2.10
-nex metasploit
-nex tshark -i 1
 ```
 
-Engine commands require the corresponding upstream program to be installed and discoverable. INFERNEX checks PATH and the standard Windows Nmap installation directories. `nex install nmap` can invoke a supported Linux package manager only after displaying the exact command and receiving an explicit `YES`; on Windows it provides official installer guidance. Other engines remain guidance-only.
+The TCP scanner is a straightforward connect scanner, not a stealth scanner. It accepts one literal IP address (not a hostname or CIDR), scans at most 256 ports per invocation and reports inconclusive connection outcomes distinctly. Only use network features against systems you own or are explicitly authorized to assess.
 
-## Design principles
+## Optional compatibility integrations
 
-- One entry point and consistent core experience.
-- Preserve original tool flags and positional arguments.
-- Prioritize original INFERNEX tools; integrations are optional, never required for native commands.
-- Respect third-party licenses, notices, and trademarks.
-- Use only on systems and networks you own or are explicitly authorized to assess.
+Some legacy commands can pass arguments to separately installed third-party programs. These are optional compatibility features, not native INFERNEX capabilities. They are not bundled, and native networking/hash commands do not depend on them.
+
+We do not claim third-party functionality as our own. Any future bundling or modification requires license, attribution and redistribution review.
 
 ## Documentation
 
 - [Command reference](docs/COMMANDS.md)
-- [Architecture](docs/ARCHITECTURE.md)
+- [Architecture and native module boundaries](docs/ARCHITECTURE.md)
+- [Parallel engineering workstreams](docs/WORKSTREAMS.md)
+- [Release and installation plan](docs/RELEASES.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-The core license and third-party redistribution policy will be finalized before a public release. The roadmap prioritizes original INFERNEX implementations; feature parity with established suites is not claimed.
+INFERNEX is under active development. Release licensing and redistribution terms must be finalized before public distribution.
