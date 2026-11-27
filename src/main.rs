@@ -190,6 +190,7 @@ fn help() {
     println!("  doctor                       Check basic environment");
     println!("  roadmap [show|next]           View the active INFERNEX build roadmap");
     println!("  config show|path             Inspect INFERNEX configuration");
+    println!("  net interfaces                List local interface addresses (read-only)");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
@@ -255,8 +256,41 @@ fn require_authorized_target(target: &str) -> bool {
     }
 }
 
+
+fn net_interfaces_command() -> ExitCode {
+    match net::list_interfaces() {
+        Ok(interfaces) if interfaces.is_empty() => {
+            println!("No local interface addresses were reported by the operating system.");
+            ExitCode::SUCCESS
+        }
+        Ok(interfaces) => {
+            println!("INFERNEX local interface inventory (read-only)");
+            for entry in interfaces {
+                let mut flags = Vec::new();
+                if entry.loopback { flags.push("loopback"); }
+                if entry.link_local { flags.push("link-local"); }
+                let flag_text = if flags.is_empty() { String::from("—") } else { flags.join(", ") };
+                println!("{}  {}/{}  netmask={}  broadcast={}  [{}]",
+                    entry.name,
+                    entry.ip,
+                    entry.prefix_len,
+                    entry.netmask,
+                    entry.broadcast.map(|ip| ip.to_string()).unwrap_or_else(|| "—".to_string()),
+                    flag_text
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("Could not enumerate local network interfaces: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn net_command(args: &[String]) -> ExitCode {
     match args {
+        [action] if action == "interfaces" => net_interfaces_command(),
         [action, hostname] if action == "resolve" => {
             match net::resolve_hostname(hostname) {
                 Ok(addresses) if addresses.is_empty() => {
@@ -281,7 +315,7 @@ fn net_command(args: &[String]) -> ExitCode {
         [action, target, start, end] if action == "scan" => net_scan_command(target, start, end),
         [action, target, port] if action == "service" => net_service_command(target, port),
         [action, target, port] if action == "udp" => net_udp_command(target, port),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port> | nex net udp <ip> <port>"); ExitCode::from(2) }
+        _ => { eprintln!("Usage: nex net interfaces | nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port> | nex net udp <ip> <port>"); ExitCode::from(2) }
     }
 }
 
