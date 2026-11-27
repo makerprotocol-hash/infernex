@@ -1,7 +1,7 @@
 use std::env;
 use std::fs::{self, File};
 use std::io::Read;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, Sha512};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -346,23 +346,40 @@ fn hash_command(args: &[String]) -> ExitCode {
             Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS },
             Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
         },
-        [action, algorithm, path, expected] if action == "verify" && algorithm == "sha256" => {
-            if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
-                eprintln!("Expected SHA-256 must be exactly 64 hexadecimal characters.");
+        [algorithm, path] if algorithm == "sha512" => match sha512_file(path) {
+            Ok(digest) => { println!("{}  {}", digest, path); ExitCode::SUCCESS },
+            Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
+        },
+        [action, algorithm, path, expected] if action == "verify" && (algorithm == "sha256" || algorithm == "sha512") => {
+            let expected_len = if algorithm == "sha256" { 64 } else { 128 };
+            if expected.len() != expected_len || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
+                eprintln!("Expected {algorithm} must be exactly {expected_len} hexadecimal characters.");
                 return ExitCode::from(2);
             }
-            match sha256_file(path) {
+            let result = if algorithm == "sha256" { sha256_file(path) } else { sha512_file(path) };
+            match result {
                 Ok(actual) if actual.eq_ignore_ascii_case(expected) => { println!("OK: SHA-256 matches for '{}'.", path); ExitCode::SUCCESS },
                 Ok(actual) => { eprintln!("MISMATCH: expected {}, got {}", expected, actual); ExitCode::from(1) },
                 Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
             }
         }
-        _ => { eprintln!("Usage: nex hash sha256 <file> | nex hash verify sha256 <file> <expected-hex>"); ExitCode::from(2) }
+        _ => { eprintln!("Usage: nex hash <sha256|sha512> <file> | nex hash verify <sha256|sha512> <file> <expected-hex>"); ExitCode::from(2) }
     }
 }
 fn sha256_file(path: &str) -> io::Result<String> {
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 { break; }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+fn sha512_file(path: &str) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let mut hasher = Sha512::new();
     let mut buffer = [0u8; 65536];
     loop {
         let count = file.read(&mut buffer)?;
@@ -787,6 +804,7 @@ mod tests {
         assert_eq!(std::net::Ipv6Addr::from(u128::from(ip) & mask).to_string(), "2001:db8::");
     }
     #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
+    #[test] fn sha512_known_vector() { let digest = Sha512::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"); }
     #[test] fn config_update_preserves_other_settings() {
         let path = env::temp_dir().join(format!("infernex-config-test-{}", std::process::id()));
         fs::write(&path, "theme=mono\naliases=true\n").unwrap();
