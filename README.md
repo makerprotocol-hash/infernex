@@ -105,3 +105,8 @@ We do not claim third-party functionality as our own. Any future bundling or mod
 - [Contributing](CONTRIBUTING.md)
 
 INFERNEX is under active development. Release licensing and redistribution terms must be finalized before public distribution.
+
+
+## Project roadmap
+
+See the [INFERNEX Master Roadmap](docs/ROADMAP.md) for the full native-engine vision, delivery milestones, security boundaries, and contributor task queue.
