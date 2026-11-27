@@ -2,10 +2,10 @@ use std::env;
 use std::fs;
 use std::io::Read;
 
-use std::io::{self, Write};
+use std::io::{self};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::ToSocketAddrs;
 use std::time::Duration;
 
 mod crypto;
@@ -379,36 +379,13 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     let address = std::net::SocketAddr::new(target, port);
     println!("INFERNEX native service identification");
     println!("Target: {address}");
-    let mut stream = match TcpStream::connect_timeout(&address, SERVICE_TIMEOUT) {
-        Ok(stream) => stream,
+    let banner = match net::identify_service_banner(address, port, SERVICE_TIMEOUT, MAX_BANNER_BYTES) {
+        Ok(banner) => banner,
         Err(error) => {
-            eprintln!("Could not connect to {address}: {error}");
+            eprintln!("Could not identify service at {address}: {error}");
             return ExitCode::from(1);
         }
     };
-    let _ = stream.set_read_timeout(Some(SERVICE_TIMEOUT));
-    let _ = stream.set_write_timeout(Some(SERVICE_TIMEOUT));
-
-    // Send a minimal, non-destructive HTTP HEAD request only on conventional
-    // cleartext HTTP ports. Other protocols are identified from their greeting.
-    if matches!(port, 80 | 8000 | 8008 | 8080 | 8081 | 8888) {
-        let request = format!("HEAD / HTTP/1.0\r\nHost: {target}\r\nConnection: close\r\n\r\n");
-        if let Err(error) = stream.write_all(request.as_bytes()) {
-            eprintln!("Connected, but could not send HTTP identification request: {error}");
-            return ExitCode::from(1);
-        }
-    }
-
-    let mut banner = vec![0u8; MAX_BANNER_BYTES];
-    let count = match stream.read(&mut banner) {
-        Ok(count) => count,
-        Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.kind() == io::ErrorKind::TimedOut => 0,
-        Err(error) => {
-            eprintln!("Connected, but could not read a service greeting: {error}");
-            return ExitCode::from(1);
-        }
-    };
-    banner.truncate(count);
     let service = net::classify_service_banner(port, &banner);
     println!("Identified protocol: {service}");
     if banner.is_empty() {
@@ -416,7 +393,7 @@ fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
     } else {
         let printable: String = banner.iter().take(160).map(|byte| {
             if byte.is_ascii_graphic() || *byte == b' ' { *byte as char }
-            else if *byte == b'\r' || *byte == b'\n' { ' ' }
+            else if *byte == b'\\r' || *byte == b'\\n' { ' ' }
             else { '.' }
         }).collect();
         println!("Banner sample: {printable}");
