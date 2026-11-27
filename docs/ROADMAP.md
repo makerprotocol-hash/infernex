@@ -32,7 +32,9 @@ The following are present in the current project baseline; consult the command r
 
 **Important:** The existing network commands are foundational diagnostics, not a full network scanner, packet engine, vulnerability scanner, or exploitation framework.
 
-Status key: `[x]` implemented and validated; `[~]` in progress or platform-limited; `[ ]` planned.\n\n## 3. Engine roadmap
+Status key: `[x]` implemented and validated; `[~]` in progress or platform-limited; `[ ]` planned.
+
+## 3. Engine roadmap
 
 ### A. Networking and protocol engine
 
