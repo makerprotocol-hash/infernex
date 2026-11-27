@@ -63,6 +63,8 @@ pub enum CryptoError {
     InvalidHexCharacter { index: usize, byte: u8 },
     /// A percent-encoded URL component contains an incomplete or invalid escape.
     InvalidPercentEncoding { index: usize },
+    /// Hexadecimal input must contain an even number of characters.
+    InvalidHexLength { actual: usize },
 }
 
 impl fmt::Display for CryptoError {
@@ -87,6 +89,10 @@ impl fmt::Display for CryptoError {
                 f,
                 "invalid percent escape at byte {index}: expected two hexadecimal digits"
             ),
+            Self::InvalidHexLength { actual } => write!(
+                f,
+                "invalid hexadecimal length: expected an even number of characters, got {actual}"
+            ),
         }
     }
 }
@@ -97,7 +103,7 @@ impl std::error::Error for CryptoError {
             Self::Io { source, .. } => Some(source),
             Self::InvalidDigestLength { .. }
             | Self::InvalidHexCharacter { .. }
-            | Self::InvalidPercentEncoding { .. } => None,
+            | Self::InvalidHexLength { .. } => None,
         }
     }
 }
@@ -142,12 +148,51 @@ pub fn hash_bytes(data: &[u8], algorithm: HashAlgorithm) -> String {
     }
 }
 
-/// Percent-encode a URL component using RFC 3986 unreserved characters.
+/// Encode arbitrary bytes as lowercase hexadecimal text.
+pub fn encode_hex(data: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(data.len().saturating_mul(2));
+    for byte in data {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
+/// Decode hexadecimal text into bytes.
 ///
-/// ASCII letters, digits, '-', '.', '_', and '~' are left unchanged. Every
-/// other input byte is encoded as an uppercase `%HH` escape. This function
-/// encodes one component, not a complete URL, and does not apply form rules
-/// such as converting spaces to '+'.
+/// Both uppercase and lowercase ASCII hexadecimal characters are accepted.
+/// Odd-length input and non-hexadecimal characters are rejected.
+pub fn decode_hex(encoded: &str) -> Result<Vec<u8>, CryptoError> {
+    let bytes = encoded.as_bytes();
+    if bytes.len() % 2 != 0 {
+        return Err(CryptoError::InvalidHexLength { actual: bytes.len() });
+    }
+
+    let mut decoded = Vec::with_capacity(bytes.len() / 2);
+    for (pair_index, pair) in bytes.chunks_exact(2).enumerate() {
+        let high = hex_nibble(pair[0]).ok_or(CryptoError::InvalidHexCharacter {
+            index: pair_index * 2,
+            byte: pair[0],
+        })?;
+        let low = hex_nibble(pair[1]).ok_or(CryptoError::InvalidHexCharacter {
+            index: pair_index * 2 + 1,
+            byte: pair[1],
+        })?;
+        decoded.push((high << 4) | low);
+    }
+    Ok(decoded)
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
 pub fn percent_encode(data: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut encoded = String::with_capacity(data.len());
@@ -267,6 +312,74 @@ fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<Strin
     Ok(digest_to_hex(hasher.finalize()))
 }
 
+/// A reusable, in-memory manifest entry for one file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileHashRecord {
+    /// Path that was hashed.
+    pub path: PathBuf,
+    /// Lowercase hexadecimal digest.
+    pub digest: String,
+}
+
+/// A snapshot of file digests using one consistent algorithm.
+///
+/// The manifest is an in-memory API type. Callers may persist it using their
+/// chosen format; this module deliberately does not define an unsafe or
+/// ambiguous path-serialization format.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HashManifest {
+    pub algorithm: HashAlgorithm,
+    pub entries: Vec<FileHashRecord>,
+}
+
+/// Result of checking one entry in a manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestCheck {
+    pub path: PathBuf,
+    pub expected_digest: String,
+    pub actual_digest: String,
+    pub matches: bool,
+}
+
+/// Build a manifest for an explicit list of files.
+///
+/// Paths are processed in caller-supplied order. No directory traversal or
+/// implicit file discovery is performed.
+pub fn create_manifest<P: AsRef<Path>>(
+    paths: &[P],
+    algorithm: HashAlgorithm,
+) -> Result<HashManifest, CryptoError> {
+    let mut entries = Vec::with_capacity(paths.len());
+    for path in paths {
+        let path = path.as_ref();
+        entries.push(FileHashRecord {
+            path: path.to_path_buf(),
+            digest: hash_file(path, algorithm)?,
+        });
+    }
+    Ok(HashManifest { algorithm, entries })
+}
+
+/// Verify every file recorded in a manifest.
+///
+/// Returns one result per entry, preserving manifest order. File I/O errors
+/// stop verification and are returned with the affected path. Malformed
+/// digests are rejected before the corresponding file is opened.
+pub fn verify_manifest(manifest: &HashManifest) -> Result<Vec<ManifestCheck>, CryptoError> {
+    let mut checks = Vec::with_capacity(manifest.entries.len());
+    for entry in &manifest.entries {
+        validate_digest(manifest.algorithm, &entry.digest)?;
+        let actual = hash_file(&entry.path, manifest.algorithm)?;
+        checks.push(ManifestCheck {
+            path: entry.path.clone(),
+            expected_digest: entry.digest.clone(),
+            matches: actual.eq_ignore_ascii_case(&entry.digest),
+            actual_digest: actual,
+        });
+    }
+    Ok(checks)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,6 +411,41 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.directory);
         }
+    }
+
+    #[test]
+    fn hex_encoding_round_trips_binary_data() {
+        let input = [0x00, 0x01, 0x7f, 0x80, 0xfe, 0xff];
+        let encoded = encode_hex(&input);
+        assert_eq!(encoded, "00017f80feff");
+        assert_eq!(decode_hex(&encoded).unwrap(), input);
+    }
+
+    #[test]
+    fn hex_encoding_handles_empty_input() {
+        assert_eq!(encode_hex(&[]), "");
+        assert_eq!(decode_hex("").unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn hex_decoding_accepts_uppercase() {
+        assert_eq!(decode_hex("00A1b2FF").unwrap(), [0x00, 0xa1, 0xb2, 0xff]);
+    }
+
+    #[test]
+    fn hex_decoding_rejects_odd_length() {
+        assert!(matches!(
+            decode_hex("abc").unwrap_err(),
+            CryptoError::InvalidHexLength { actual: 3 }
+        ));
+    }
+
+    #[test]
+    fn hex_decoding_reports_invalid_character_position() {
+        assert!(matches!(
+            decode_hex("00xz").unwrap_err(),
+            CryptoError::InvalidHexCharacter { index: 2, byte: b'x' }
+        ));
     }
 
     #[test]
@@ -522,6 +670,99 @@ mod tests {
         let error = hash_reader::<Sha256, _>(&mut FailingReader).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     }
+
+    #[test]
+    fn creates_and_verifies_manifest_for_multiple_files() {
+        let first = TestFile::new(b"first file");
+        let second = TestFile::new(&[0, 0xff, 0x80, 1]);
+        let paths = [&first.path, &second.path];
+        let manifest = create_manifest(&paths, HashAlgorithm::Sha256).unwrap();
+        assert_eq!(manifest.entries.len(), 2);
+        let checks = verify_manifest(&manifest).unwrap();
+        assert_eq!(checks.len(), 2);
+        assert!(checks.iter().all(|check| check.matches));
+    }
+
+    #[test]
+    fn manifest_reports_modified_file_without_hiding_actual_digest() {
+        let file = TestFile::new(b"original");
+        let paths = [&file.path];
+        let mut manifest = create_manifest(&paths, HashAlgorithm::Sha512).unwrap();
+        fs::write(&file.path, b"modified").unwrap();
+
+        let checks = verify_manifest(&manifest).unwrap();
+        assert_eq!(checks.len(), 1);
+        assert!(!checks[0].matches);
+        assert_ne!(checks[0].expected_digest, checks[0].actual_digest);
+
+        manifest.entries[0].digest = "invalid".to_owned();
+        assert!(matches!(
+            verify_manifest(&manifest).unwrap_err(),
+            CryptoError::InvalidDigestLength { .. }
+        ));
+    }
+
+    #[test]
+    fn empty_manifest_is_valid() {
+        let manifest = HashManifest {
+            algorithm: HashAlgorithm::Sha256,
+            entries: Vec::new(),
+        };
+        assert!(verify_manifest(&manifest).unwrap().is_empty());
+    }
+    #[test]
+    fn manifest_preserves_caller_path_order() {
+        let first = TestFile::new(b"first");
+        let second = TestFile::new(b"second");
+        let paths = [&second.path, &first.path];
+        let manifest = create_manifest(&paths, HashAlgorithm::Sha256).unwrap();
+
+        assert_eq!(manifest.entries[0].path, second.path);
+        assert_eq!(manifest.entries[1].path, first.path);
+    }
+
+    #[test]
+    fn manifest_reports_missing_file_with_path() {
+        let file = TestFile::new(b"present");
+        let manifest = create_manifest(&[&file.path], HashAlgorithm::Sha256).unwrap();
+        fs::remove_file(&file.path).unwrap();
+
+        match verify_manifest(&manifest).unwrap_err() {
+            CryptoError::Io { path, source } => {
+                assert_eq!(path, file.path);
+                assert_eq!(source.kind(), io::ErrorKind::NotFound);
+            }
+            other => panic!("expected path-aware I/O error, got {other}"),
+        }
+    }
+
+    #[test]
+    fn manifest_rejects_malformed_digest_before_opening_file() {
+        let missing = std::env::temp_dir().join("infernex-missing-manifest-target");
+        let manifest = HashManifest {
+            algorithm: HashAlgorithm::Sha256,
+            entries: vec![FileHashRecord {
+                path: missing,
+                digest: "z".repeat(64),
+            }],
+        };
+
+        assert!(matches!(
+            verify_manifest(&manifest).unwrap_err(),
+            CryptoError::InvalidHexCharacter { index: 0, byte: b'z' }
+        ));
+    }
+
+    #[test]
+    fn manifest_digest_comparison_is_case_insensitive() {
+        let file = TestFile::new(b"case-insensitive");
+        let mut manifest = create_manifest(&[&file.path], HashAlgorithm::Sha256).unwrap();
+        manifest.entries[0].digest.make_ascii_uppercase();
+
+        let checks = verify_manifest(&manifest).unwrap();
+        assert!(checks[0].matches);
+    }
+
 
     #[test]
     fn percent_encodes_rfc3986_component_bytes() {
