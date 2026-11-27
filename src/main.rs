@@ -9,6 +9,8 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 use std::collections::BTreeSet;
 
+mod scope;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy)]
@@ -51,6 +53,7 @@ fn dispatch_with_aliases(args: &[String], depth: usize) -> ExitCode {
         "config" => config_command(&args[1..]),
         "hash" => hash_command(&args[1..]),
         "net" => net_command(&args[1..]),
+        "scope" => scope_command(&args[1..]),
         "theme" => theme_command(&args[1..]),
         "alias" => alias_command(&args[1..]),
         "engines" => engines_command(&args[1..]),
@@ -142,6 +145,8 @@ fn help() {
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
     println!("  net port <host> <port>         Test one TCP destination port");
     println!("  net scan <ip> <start> <end>    Bounded native TCP scan (max 256 ports)");
+    println!("  scope add|remove <target>      Manage authorized targets");
+    println!("  scope list|check <target>      Inspect authorization scope");
     println!("  hash <sha256|sha512> <file>    Calculate a file digest");
     println!("  hash verify <algorithm> ...   Verify a file digest");
     println!("  engines [check|info <name>]  Inspect optional compatibility integrations");
@@ -152,6 +157,52 @@ fn help() {
     println!("\nExamples:\n  nex nmap -sV 192.0.2.10\n  nex metasploit\n  nex theme set ember");
     println!("\nOnly assess systems and networks you own or are explicitly authorized to test.");
 }
+fn scope_command(args: &[String]) -> ExitCode {
+    let result = match args {
+        [action, value] if action == "add" => scope::add(value).map(|entry| {
+            println!("Authorized scope entry added: {entry}");
+        }),
+        [action, value] if action == "remove" => scope::remove(value).map(|entry| {
+            println!("Authorized scope entry removed: {entry}");
+        }),
+        [action] if action == "list" => scope::list().map(|entries| {
+            if entries.is_empty() {
+                println!("No authorized targets recorded. Active network commands are denied by default.");
+            } else {
+                println!("Authorized targets:");
+                for entry in entries { println!("  {entry}"); }
+            }
+        }),
+        [action, target] if action == "check" => scope::check(target).map(|allowed| {
+            if allowed { println!("AUTHORIZED: {target}"); }
+            else { println!("DENIED: {target} is not in the recorded scope."); }
+        }),
+        _ => {
+            eprintln!("Usage: nex scope add <ip|cidr|hostname> | remove <entry> | list | check <target>");
+            return ExitCode::from(2);
+        }
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => { eprintln!("Scope operation failed: {error}"); ExitCode::from(1) }
+    }
+}
+
+fn require_authorized_target(target: &str) -> bool {
+    match scope::check(target) {
+        Ok(true) => true,
+        Ok(false) => {
+            eprintln!("DENIED: '{target}' is not in INFERNEX authorized scope.");
+            eprintln!("Add an explicitly authorized target with: nex scope add {target}");
+            false
+        }
+        Err(error) => {
+            eprintln!("Authorization scope could not be verified; refusing network activity: {error}");
+            false
+        }
+    }
+}
+
 fn net_command(args: &[String]) -> ExitCode {
     match args {
         [action, hostname] if action == "resolve" => {
@@ -207,6 +258,7 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
         return ExitCode::from(2);
     };
     println!("INFERNEX native TCP scan");
+    if !require_authorized_target(&target.to_string()) { return ExitCode::from(3); }
     println!("Target: {target}");
     println!("Ports: {start}-{end} ({} total)", end - start + 1);
     println!("Timeout: {} ms per port; no stealth or evasion techniques", SCAN_TIMEOUT.as_millis());
@@ -230,6 +282,7 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
 
 // Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
 fn net_port_command(host: &str, port_text: &str) -> ExitCode {
+    if !require_authorized_target(host) { return ExitCode::from(3); }
     let Some(port) = parse_tcp_port(port_text) else {
         eprintln!("Port must be an integer between 1 and 65535.");
         return ExitCode::from(2);
