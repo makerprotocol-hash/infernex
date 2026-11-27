@@ -900,7 +900,7 @@ mod tests {
             (b"foob", "Zm9vYg"),
             (b"fooba", "Zm9vYmE"),
             (b"foobar", "Zm9vYmFy"),
-            (b"\\xfb\\xff", "-_8"),
+            (b"\xfb\xff", "-_8"),
         ];
         for (plain, encoded) in vectors {
             assert_eq!(base64url_encode(plain), encoded);
