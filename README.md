@@ -34,10 +34,11 @@ INFERNEX is an early, actively developed foundation—not yet a complete securit
 - Streaming SHA-256 and SHA-512 file hashing and checksum verification.
 - Explicit file-integrity manifest APIs for caller-supplied paths (in-memory; no implicit directory traversal).
 - Read-only local IPv4/IPv6 interface address inventory.
+- Read-only local IPv4/IPv6 route and default-gateway inventory on Linux.
 
 ### In progress
 
-- Complete the next networking inventory step: read-only route and default-gateway reporting for Windows and Linux.
+- Complete cross-platform route and default-gateway inventory: Linux IPv4/IPv6 reporting is implemented; the Windows native adapter remains planned.
 - Continue bounded DNS record diagnostics, TLS inspection and structured output design.
 
 ### Completed foundation work
@@ -45,6 +46,7 @@ INFERNEX is an early, actively developed foundation—not yet a complete securit
 - Networking operations (DNS, bounded TCP, one-datagram UDP and service identification) are extracted into `src/net.rs`.
 - Explicit file-integrity manifest APIs are implemented for caller-supplied paths.
 - Read-only local IPv4/IPv6 interface address inventory is available through `nex net interfaces`.
+- Read-only Linux IPv4/IPv6 route inventory is available through `nex net routes`; the Windows adapter remains planned.
 
 Authenticated file encryption remains a design/approval task; no encryption command is implemented yet.
 
