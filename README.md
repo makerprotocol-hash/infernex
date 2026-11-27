@@ -70,7 +70,7 @@ A roadmap item is not an implemented feature. See [the command reference](docs/C
 
 ## Brand identity
 
-The angular red-orange **X** is the official INFERNEX mark. The official PNG emblem and portal banner are stored in `assets/`; the SVG logo and banner remain available as lightweight vector alternatives.
+The angular red-orange **X** is the official INFERNEX mark. The official PNG emblem and portal banner are stored in `assets/`. These brand assets are separate from the source-code license; see the license section below.
 
 ## Active roadmap
 
@@ -130,9 +130,6 @@ We do not claim third-party functionality as our own. Any future bundling or mod
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-INFERNEX is under active development. Release licensing and redistribution terms must be finalized before public distribution.
-
-
 ## Project roadmap
 
 See the [INFERNEX Master Roadmap](docs/ROADMAP.md) for the full native-engine vision, delivery milestones, security boundaries, and contributor task queue.
@@ -147,4 +144,3 @@ The INFERNEX source code and documentation are dual-licensed. You may choose eit
 This is expressed as `MIT OR Apache-2.0` in the Cargo package metadata. Contributions intentionally submitted for inclusion are offered under the same terms, unless the contributor clearly states otherwise. Contributors retain copyright in their contributions.
 
 **Brand assets are separate.** The INFERNEX name, X emblem, portal/banner artwork and other brand assets in `assets/` are not covered by the software licenses above. All rights to those assets are reserved unless a specific asset file states otherwise. The software license does not grant permission to use INFERNEX trademarks or imply endorsement.
-
