@@ -173,7 +173,8 @@ fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<Strin
         }
     }
 
-    Ok(format!("{:x}", hasher.finalize()))
+    let digest = hasher.finalize();
+    Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 #[cfg(test)]
