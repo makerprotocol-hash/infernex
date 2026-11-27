@@ -714,7 +714,7 @@ fn valid_alias_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 32 && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 fn is_builtin_command(name: &str) -> bool {
-    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "config" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
+    matches!(name, "help" | "version" | "doctor" | "hash" | "net" | "theme" | "engines" | "install" | "update" | "alias" | "config" | "scope" | "exit" | "quit") || ENGINES.iter().any(|engine| engine.name == name)
 }
 fn remove_config_value(path: &std::path::Path, key: &str) -> io::Result<()> {
     let existing = fs::read_to_string(path).unwrap_or_default();
