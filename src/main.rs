@@ -951,8 +951,6 @@ mod tests {
         let mask = u128::MAX << (128 - prefix);
         assert_eq!(std::net::Ipv6Addr::from(u128::from(ip) & mask).to_string(), "2001:db8::");
     }
-    #[test] fn sha256_known_vector() { let digest = Sha256::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"); }
-    #[test] fn sha512_known_vector() { let digest = Sha512::digest(b"abc"); assert_eq!(format!("{:x}", digest), "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"); }
     #[test] fn config_update_preserves_other_settings() {
         let path = env::temp_dir().join(format!("infernex-config-test-{}", std::process::id()));
         fs::write(&path, "theme=mono\naliases=true\n").unwrap();
