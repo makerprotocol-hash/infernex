@@ -18,7 +18,7 @@ The Rust core now includes:
 - Read-only configuration inspection that reports the active theme and alias count without exposing alias values.
 - A consent-gated Linux Nmap installer for APT, DNF, YUM, Pacman, and Zypper; Windows receives official installer guidance.
 - Native system-DNS hostname resolution, offline IPv4/IPv6 CIDR range inspection, local IP address classification, bounded single-port TCP connectivity checks, and a native TCP connect scanner limited to 256 ports per invocation.
-- Native streaming SHA-256 file integrity hashing and checksum verification.
+- Native streaming SHA-256 and SHA-512 file integrity hashing and checksum verification.
 - Persistent user-defined command aliases with bounded expansion, quoted-argument preservation, and no shell evaluation.
 - Optional ANSI color suppression through the standard `NO_COLOR` environment variable.
 - Initial unit tests and Windows/Linux CI configuration.
@@ -49,7 +49,9 @@ nex net inspect 192.168.1.10
 nex net port example.com 443
 nex net scan 192.0.2.10 1 128
 nex hash sha256 ./download.zip
+nex hash sha512 ./download.zip
 nex hash verify sha256 ./download.zip <expected-64-character-hex>
+nex hash verify sha512 ./download.zip <expected-128-character-hex>
 nex engines
 nex engines check
 nex theme list
