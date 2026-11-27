@@ -127,7 +127,7 @@ fn banner() {
         println!("\x1b[38;5;202m  Unified cybersecurity command environment\x1b[0m");
     } else {
         println!("  INFERNEX / NEX — native-first cybersecurity platform");
-        println!("  Unified cybersecurity command environment");
+        println!("  Native-first cybersecurity platform");
     }
     println!("Version {VERSION}\n");
 }
