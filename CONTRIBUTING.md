@@ -10,7 +10,7 @@ Native features are the product. Third-party programs may be supported as option
 
 ## Before coding
 
-Read [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) and choose one task card. The roadmap defines file ownership, exact scope and acceptance criteria so parallel contributors and coding agents do not overwrite one another.
+Read the [Community Standards](CODE_OF_CONDUCT.md), then read [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) and choose one task card. The roadmap defines file ownership, exact scope and acceptance criteria so parallel contributors and coding agents do not overwrite one another.
 
 ## Engineering principles
 
