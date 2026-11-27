@@ -179,9 +179,17 @@ pub fn hash_file<P: AsRef<Path>>(
 ///
 /// Unlike [`hash_file`], this helper is infallible and does not perform file I/O.
 pub fn hash_bytes(data: &[u8], algorithm: HashAlgorithm) -> String {
+    encode_hex(&hash_bytes_raw(data, algorithm))
+}
+
+/// Hash an in-memory byte slice and return the raw digest bytes.
+///
+/// SHA-256 returns 32 bytes and SHA-512 returns 64 bytes. Use hash_bytes
+/// when a lowercase hexadecimal representation is preferred.
+pub fn hash_bytes_raw(data: &[u8], algorithm: HashAlgorithm) -> Vec<u8> {
     match algorithm {
-        HashAlgorithm::Sha256 => digest_to_hex(Sha256::digest(data)),
-        HashAlgorithm::Sha512 => digest_to_hex(Sha512::digest(data)),
+        HashAlgorithm::Sha256 => Sha256::digest(data).to_vec(),
+        HashAlgorithm::Sha512 => Sha512::digest(data).to_vec(),
     }
 }
 
@@ -865,6 +873,38 @@ mod tests {
             hash_bytes(b"", HashAlgorithm::Sha256),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
+    }
+
+    #[test]
+    fn raw_byte_slice_hashes_match_known_vectors_and_hex_helpers() {
+        let sha256 = hash_bytes_raw(b"abc", HashAlgorithm::Sha256);
+        let sha512 = hash_bytes_raw(b"abc", HashAlgorithm::Sha512);
+
+        assert_eq!(sha256.len(), 32);
+        assert_eq!(sha512.len(), 64);
+        assert_eq!(
+            encode_hex(&sha256),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            encode_hex(&sha512),
+            "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        );
+        assert_eq!(hash_bytes(b"abc", HashAlgorithm::Sha256), encode_hex(&sha256));
+        assert_eq!(hash_bytes(b"abc", HashAlgorithm::Sha512), encode_hex(&sha512));
+    }
+
+    #[test]
+    fn raw_hashes_support_empty_and_binary_inputs() {
+        for algorithm in [HashAlgorithm::Sha256, HashAlgorithm::Sha512] {
+            let bytes = [0, 0xff, 0x80, b'\\', 0, 42];
+            let raw = hash_bytes_raw(&bytes, algorithm);
+            assert_eq!(decode_hex(&hash_bytes(&bytes, algorithm)).unwrap(), raw);
+            assert_eq!(hash_bytes_raw(&[], algorithm).len(), match algorithm {
+                HashAlgorithm::Sha256 => 32,
+                HashAlgorithm::Sha512 => 64,
+            });
+        }
     }
 
     #[test]
