@@ -545,6 +545,19 @@ pub struct ManifestCheck {
     pub matches: bool,
 }
 
+/// Aggregate outcome of verifying every entry in a manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestVerificationReport {
+    /// Per-file verification results, in manifest order.
+    pub checks: Vec<ManifestCheck>,
+    /// Number of entries in the manifest.
+    pub total: usize,
+    /// Number of entries whose actual digest matched the expected digest.
+    pub matched: usize,
+    /// Number of entries whose actual digest differed from the expected digest.
+    pub mismatched: usize,
+}
+
 /// Build a manifest for an explicit list of files.
 ///
 /// Paths are processed in caller-supplied order. No directory traversal or
@@ -562,6 +575,21 @@ pub fn create_manifest<P: AsRef<Path>>(
         });
     }
     Ok(HashManifest { algorithm, entries })
+}
+
+/// Verify a manifest and return both per-file checks and aggregate counts.
+///
+/// The report preserves manifest order. As with [`verify_manifest`], malformed
+/// digests and file I/O failures return an error rather than a partial report.
+pub fn verify_manifest_report(
+    manifest: &HashManifest,
+) -> Result<ManifestVerificationReport, CryptoError> {
+    let checks = verify_manifest(manifest)?;
+    let total = checks.len();
+    let matched = checks.iter().filter(|check| check.matches).count();
+    let mismatched = total - matched;
+
+    Ok(ManifestVerificationReport { checks, total, matched, mismatched })
 }
 
 /// Verify every file recorded in a manifest.
@@ -1043,6 +1071,30 @@ mod tests {
             verify_manifest(&manifest).unwrap_err(),
             CryptoError::InvalidDigestLength { .. }
         ));
+    }
+
+    #[test]
+    fn manifest_report_aggregates_matching_and_modified_files() {
+        let matching = TestFile::new(b"unchanged");
+        let modified = TestFile::new(b"before");
+        let paths = [&matching.path, &modified.path];
+        let mut manifest = create_manifest(&paths, HashAlgorithm::Sha256).unwrap();
+        fs::write(&modified.path, b"after").unwrap();
+
+        let report = verify_manifest_report(&manifest).unwrap();
+        assert_eq!(report.total, 2);
+        assert_eq!(report.matched, 1);
+        assert_eq!(report.mismatched, 1);
+        assert_eq!(report.checks.len(), 2);
+        assert!(report.checks[0].matches);
+        assert!(!report.checks[1].matches);
+        assert_eq!(report.checks[1].path, modified.path);
+
+        manifest.entries.clear();
+        let empty = verify_manifest_report(&manifest).unwrap();
+        assert_eq!(empty.total, 0);
+        assert_eq!(empty.matched, 0);
+        assert_eq!(empty.mismatched, 0);
     }
 
     #[test]
