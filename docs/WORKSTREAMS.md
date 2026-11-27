@@ -63,7 +63,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-03 — byte-slice digest helper
 
-**Status:** Implemented on main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module. Open PR #12 duplicates this already-merged functionality and should be closed as superseded.
+**Status:** Implemented on main in commit `a9afa67`; byte-slice SHA-256/SHA-512 helper and tests are available in the crypto module. PR #12 was closed without merging because this functionality was already present on main.
 
 - Owned file: `src/crypto.rs`.
 - Add/test a public byte-slice hash helper using existing SHA-256/SHA-512 algorithms.
@@ -71,7 +71,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### CRYPTO-04 — explicit file integrity manifests
 
-**Status:** Implemented on main through merged PR #6 (`f2aea0a`). The in-memory API hashes only caller-supplied paths; it does not walk directories or define a persistence format. Open PR #11 duplicates this implementation and should be closed as superseded.
+**Status:** Implemented on main through merged PR #6 (`f2aea0a`). The in-memory API hashes only caller-supplied paths; it does not walk directories or define a persistence format. PR #11 was closed without merging because this implementation was already present on main.
 
 - Owned file: `src/crypto.rs`.
 - Build and verify manifests only from explicit caller-supplied file paths.
