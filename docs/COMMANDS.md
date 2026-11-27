@@ -59,6 +59,14 @@ nex hash verify sha512 ./release.zip <128-character-hex-digest>
 A matching digest confirms byte-for-byte consistency with the expected digest. It does not identify who created the file. Obtain expected checksums from an authenticated source.
 
 ## Native network diagnostics
+List local IPv4 and IPv6 interface addresses without sending network traffic:
+
+```sh
+nex net interfaces
+```
+
+This read-only inventory uses operating-system interface APIs and reports interface name, address, prefix length, netmask, optional broadcast address, and loopback/link-local classification. It does not change interface state or enumerate remote hosts. Route and default-gateway inventory is a separate planned capability.
+
 
 Resolve a hostname using the system DNS resolver:
 
