@@ -30,7 +30,7 @@ Each native module must:
 
 Active TCP and UDP operations require explicit targets present in the local authorization scope. The scope implementation supports exact IPs, IPv4/IPv6 CIDRs and exact hostnames; it does not infer permission from DNS results, wildcards or subdomains. No silent target discovery, CIDR expansion, stealth, evasion or unbounded scans. Scanner results are observations, not proof of authorization or vulnerability. Distinguish open, refused and inconclusive/no-response states.
 
-The first modularization step is complete: pure networking primitives and their unit tests now live in `src/net.rs`; command wrappers and active socket operations are still in `src/main.rs`. Current network behavior includes system DNS resolution, offline CIDR/IP inspection, single-port TCP connectivity, a bounded TCP connect scanner, bounded banner-based service identification and a one-datagram UDP diagnostic. These are narrow diagnostics, not broad protocol coverage.
+The first modularization step is complete: pure networking primitives and their unit tests live in `src/net.rs`. The NET-01B extraction is in progress: bounded DNS resolution, TCP connect, and one-datagram UDP exchange APIs now live in `src/net.rs`, with loopback tests for TCP and UDP. CLI wrappers retain output formatting and scope enforcement; service-identification socket orchestration remains in `src/main.rs. These are narrow diagnostics, not broad protocol coverage.
 
 ## Cryptography safety
 
