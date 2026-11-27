@@ -194,6 +194,74 @@ fn hash_reader<D: Digest + Default, R: Read>(reader: &mut R) -> io::Result<Strin
     Ok(digest_to_hex(hasher.finalize()))
 }
 
+/// A reusable, in-memory manifest entry for one file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileHashRecord {
+    /// Path that was hashed.
+    pub path: PathBuf,
+    /// Lowercase hexadecimal digest.
+    pub digest: String,
+}
+
+/// A snapshot of file digests using one consistent algorithm.
+///
+/// The manifest is an in-memory API type. Callers may persist it using their
+/// chosen format; this module deliberately does not define an unsafe or
+/// ambiguous path-serialization format.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HashManifest {
+    pub algorithm: HashAlgorithm,
+    pub entries: Vec<FileHashRecord>,
+}
+
+/// Result of checking one entry in a manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestCheck {
+    pub path: PathBuf,
+    pub expected_digest: String,
+    pub actual_digest: String,
+    pub matches: bool,
+}
+
+/// Build a manifest for an explicit list of files.
+///
+/// Paths are processed in caller-supplied order. No directory traversal or
+/// implicit file discovery is performed.
+pub fn create_manifest<P: AsRef<Path>>(
+    paths: &[P],
+    algorithm: HashAlgorithm,
+) -> Result<HashManifest, CryptoError> {
+    let mut entries = Vec::with_capacity(paths.len());
+    for path in paths {
+        let path = path.as_ref();
+        entries.push(FileHashRecord {
+            path: path.to_path_buf(),
+            digest: hash_file(path, algorithm)?,
+        });
+    }
+    Ok(HashManifest { algorithm, entries })
+}
+
+/// Verify every file recorded in a manifest.
+///
+/// Returns one result per entry, preserving manifest order. File I/O errors
+/// stop verification and are returned with the affected path. Malformed
+/// digests are rejected before the corresponding file is opened.
+pub fn verify_manifest(manifest: &HashManifest) -> Result<Vec<ManifestCheck>, CryptoError> {
+    let mut checks = Vec::with_capacity(manifest.entries.len());
+    for entry in &manifest.entries {
+        validate_digest(manifest.algorithm, &entry.digest)?;
+        let actual = hash_file(&entry.path, manifest.algorithm)?;
+        checks.push(ManifestCheck {
+            path: entry.path.clone(),
+            expected_digest: entry.digest.clone(),
+            matches: actual.eq_ignore_ascii_case(&entry.digest),
+            actual_digest: actual,
+        });
+    }
+    Ok(checks)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -450,4 +518,44 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     }
 
+
+    #[test]
+    fn creates_and_verifies_manifest_for_multiple_files() {
+        let first = TestFile::new(b"first file");
+        let second = TestFile::new(&[0, 0xff, 0x80, 1]);
+        let paths = [&first.path, &second.path];
+        let manifest = create_manifest(&paths, HashAlgorithm::Sha256).unwrap();
+        assert_eq!(manifest.entries.len(), 2);
+        let checks = verify_manifest(&manifest).unwrap();
+        assert_eq!(checks.len(), 2);
+        assert!(checks.iter().all(|check| check.matches));
+    }
+
+    #[test]
+    fn manifest_reports_modified_file_without_hiding_actual_digest() {
+        let file = TestFile::new(b"original");
+        let paths = [&file.path];
+        let mut manifest = create_manifest(&paths, HashAlgorithm::Sha512).unwrap();
+        fs::write(&file.path, b"modified").unwrap();
+
+        let checks = verify_manifest(&manifest).unwrap();
+        assert_eq!(checks.len(), 1);
+        assert!(!checks[0].matches);
+        assert_ne!(checks[0].expected_digest, checks[0].actual_digest);
+
+        manifest.entries[0].digest = "invalid".to_owned();
+        assert!(matches!(
+            verify_manifest(&manifest).unwrap_err(),
+            CryptoError::InvalidDigestLength { .. }
+        ));
+    }
+
+    #[test]
+    fn empty_manifest_is_valid() {
+        let manifest = HashManifest {
+            algorithm: HashAlgorithm::Sha256,
+            entries: Vec::new(),
+        };
+        assert!(verify_manifest(&manifest).unwrap().is_empty());
+    }
 }
