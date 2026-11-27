@@ -179,16 +179,17 @@ fn net_command(args: &[String]) -> ExitCode {
     }
 }
 
+fn parse_tcp_port(value: &str) -> Option<u16> {
+    let port = value.parse::<u16>().ok()?;
+    (port != 0).then_some(port)
+}
+
 // Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
 fn net_port_command(host: &str, port_text: &str) -> ExitCode {
-    let Ok(port) = port_text.parse::<u16>() else {
+    let Some(port) = parse_tcp_port(port_text) else {
         eprintln!("Port must be an integer between 1 and 65535.");
         return ExitCode::from(2);
     };
-    if port == 0 {
-        eprintln!("Port 0 is not a valid destination port.");
-        return ExitCode::from(2);
-    }
     let addresses: Vec<_> = match (host, port).to_socket_addrs() {
         Ok(values) => values.collect(),
         Err(error) => {
@@ -666,6 +667,16 @@ fn run_engine(name: &str, args: &[String]) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test] fn tcp_port_parser_accepts_valid_ports_and_rejects_invalid_values() {
+        assert_eq!(parse_tcp_port("1"), Some(1));
+        assert_eq!(parse_tcp_port("443"), Some(443));
+        assert_eq!(parse_tcp_port("65535"), Some(65535));
+        assert_eq!(parse_tcp_port("0"), None);
+        assert_eq!(parse_tcp_port("65536"), None);
+        assert_eq!(parse_tcp_port("-1"), None);
+        assert_eq!(parse_tcp_port("https"), None);
+        assert_eq!(parse_tcp_port("443/tcp"), None);
+    }
     #[test] fn tokenizes_plain_args() { assert_eq!(tokenize("nmap -sV host").unwrap(), vec!["nmap", "-sV", "host"]); }
     #[test] fn tokenizes_quoted_args() { assert_eq!(tokenize("web --url \"https://example.test/a b\"").unwrap(), vec!["web", "--url", "https://example.test/a b"]); }
     #[test] fn rejects_unclosed_quote() { assert!(tokenize("nmap \"host").is_err()); }
