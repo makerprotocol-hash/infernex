@@ -134,3 +134,15 @@ INFERNEX is under active development. Release licensing and redistribution terms
 ## Project roadmap
 
 See the [INFERNEX Master Roadmap](docs/ROADMAP.md) for the full native-engine vision, delivery milestones, security boundaries, and contributor task queue.
+
+## License
+
+The INFERNEX source code and documentation are dual-licensed. You may choose either:
+
+- [Apache License, Version 2.0](LICENSE-APACHE)
+- [MIT License](LICENSE-MIT)
+
+This is expressed as `MIT OR Apache-2.0` in the Cargo package metadata. Contributions intentionally submitted for inclusion are offered under the same terms, unless the contributor clearly states otherwise. Contributors retain copyright in their contributions.
+
+**Brand assets are separate.** The INFERNEX name, X emblem, portal/banner artwork and other brand assets in `assets/` are not covered by the software licenses above. All rights to those assets are reserved unless a specific asset file states otherwise. The software license does not grant permission to use INFERNEX trademarks or imply endorsement.
+
