@@ -198,6 +198,11 @@ fn parse_linux_ipv4_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let parse_hex = |value: &str, field: &str| -> std::io::Result<u32> {
             u32::from_str_radix(value, 16).map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid {field} in IPv4 route row at line {}", line_number + 1)))
         };
+        for (index, width) in [(1, 8), (2, 8), (3, 4), (6, 8), (7, 8)] {
+            if fields[index].len() != width {
+                return Err(Error::new(ErrorKind::InvalidData, format!("invalid field width in IPv4 route row at line {}", line_number + 1)));
+            }
+        }
         let destination_raw = parse_hex(fields[1], "destination")?;
         let gateway_raw = parse_hex(fields[2], "gateway")?;
         let flags = parse_hex(fields[3], "flags")?;
@@ -241,6 +246,11 @@ fn parse_linux_ipv6_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let parse_hex = |value: &str, field: &str| -> std::io::Result<u128> {
             u128::from_str_radix(value, 16).map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid {field} in IPv6 route row at line {}", line_number + 1)))
         };
+        for (index, width) in [(0, 32), (1, 2), (2, 32), (3, 2), (4, 32), (5, 8), (6, 8), (7, 8), (8, 8)] {
+            if fields[index].len() != width {
+                return Err(Error::new(ErrorKind::InvalidData, format!("invalid field width in IPv6 route row at line {}", line_number + 1)));
+            }
+        }
         let destination_raw = parse_hex(fields[0], "destination")?;
         let prefix = u8::from_str_radix(fields[1], 16)
             .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid prefix at line {}", line_number + 1)))?;
