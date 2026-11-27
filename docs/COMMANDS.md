@@ -60,6 +60,14 @@ nex net service 192.0.2.10 80
 
 This makes one bounded TCP connection, reads at most 512 banner bytes, and sends a minimal HTTP HEAD request only on selected conventional cleartext HTTP ports. It recognizes protocol signatures such as SSH, HTTP, SMTP, FTP, POP3 and IMAP. Port numbers alone are not treated as proof of service identity. Missing or encrypted banners may remain unidentified. The target must be in the authorization scope.
 
+Check one explicitly selected UDP endpoint:
+
+```sh
+nex net udp 192.0.2.10 53
+```
+
+The native diagnostic requires the literal IP to be in the authorization scope, sends one fixed 23-byte diagnostic datagram, and waits up to two seconds for a response (maximum 512 response bytes). A response confirms that something replied; no response is inconclusive because UDP services commonly ignore unknown datagrams and filtering may intervene. This is a single endpoint check, not a UDP port scanner.
+
 ## Native network diagnostics
 
 Resolve a hostname using the system DNS resolver:
