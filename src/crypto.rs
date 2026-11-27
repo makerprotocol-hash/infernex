@@ -65,6 +65,8 @@ pub enum CryptoError {
     InvalidHexLength { actual: usize },
     /// A percent-encoded URL component contains an incomplete or invalid escape.
     InvalidPercentEncoding { index: usize },
+    /// Base64 input has invalid length, alphabet, padding, or unused padding bits.
+    InvalidBase64 { index: usize },
 }
 
 impl fmt::Display for CryptoError {
@@ -93,6 +95,9 @@ impl fmt::Display for CryptoError {
                 f,
                 "invalid percent escape at byte {index}: expected two hexadecimal digits"
             ),
+            Self::InvalidBase64 { index } => {
+                write!(f, "invalid Base64 input at byte {index}")
+            }
         }
     }
 }
@@ -104,7 +109,8 @@ impl std::error::Error for CryptoError {
             Self::InvalidDigestLength { .. }
             | Self::InvalidHexCharacter { .. }
             | Self::InvalidHexLength { .. }
-            | Self::InvalidPercentEncoding { .. } => None,
+            | Self::InvalidPercentEncoding { .. }
+            | Self::InvalidBase64 { .. } => None,
         }
     }
 }
@@ -248,6 +254,106 @@ pub fn percent_decode(encoded: &str) -> Result<Vec<u8>, CryptoError> {
     }
 
     Ok(decoded)
+}
+
+/// Encode arbitrary bytes using the standard RFC 4648 Base64 alphabet.
+///
+/// Output uses the standard '+' and '/' alphabet and canonical '=' padding.
+/// This is an encoding utility, not encryption.
+pub fn base64_encode(data: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let capacity = data.len().saturating_add(2) / 3 * 4;
+    let mut encoded = String::with_capacity(capacity);
+
+    for chunk in data.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied();
+        let third = chunk.get(2).copied();
+
+        encoded.push(char::from(ALPHABET[(first >> 2) as usize]));
+        encoded.push(char::from(
+            ALPHABET[(((first & 0x03) << 4) | second.unwrap_or(0) >> 4) as usize],
+        ));
+
+        match (second, third) {
+            (Some(second), Some(third)) => {
+                encoded.push(char::from(
+                    ALPHABET[(((second & 0x0f) << 2) | (third >> 6)) as usize],
+                ));
+                encoded.push(char::from(ALPHABET[(third & 0x3f) as usize]));
+            }
+            (Some(second), None) => {
+                encoded.push(char::from(ALPHABET[((second & 0x0f) << 2) as usize]));
+                encoded.push('=');
+            }
+            (None, None) => {
+                encoded.push('=');
+                encoded.push('=');
+            }
+            (None, Some(_)) => unreachable!("chunks of three cannot skip their second byte"),
+        }
+    }
+
+    encoded
+}
+
+/// Decode standard RFC 4648 Base64 into bytes.
+///
+/// The decoder requires complete four-byte groups, final-only padding, and
+/// canonical zero padding bits. Whitespace and the Base64url alphabet are not
+/// accepted. Errors report the byte offset of the malformed input.
+pub fn base64_decode(encoded: &str) -> Result<Vec<u8>, CryptoError> {
+    let input = encoded.as_bytes();
+    if input.len() % 4 != 0 {
+        return Err(CryptoError::InvalidBase64 { index: input.len() });
+    }
+
+    let mut decoded = Vec::with_capacity(input.len() / 4 * 3);
+    for (group_index, group) in input.chunks_exact(4).enumerate() {
+        let offset = group_index * 4;
+        let a = base64_value(group[0])
+            .ok_or(CryptoError::InvalidBase64 { index: offset })?;
+        let b = base64_value(group[1])
+            .ok_or(CryptoError::InvalidBase64 { index: offset + 1 })?;
+
+        decoded.push((a << 2) | (b >> 4));
+
+        if group[2] == b'=' {
+            if group[3] != b'=' || offset + 4 != input.len() || b & 0x0f != 0 {
+                return Err(CryptoError::InvalidBase64 { index: offset + 2 });
+            }
+            continue;
+        }
+
+        let c = base64_value(group[2])
+            .ok_or(CryptoError::InvalidBase64 { index: offset + 2 })?;
+        decoded.push((b << 4) | (c >> 2));
+
+        if group[3] == b'=' {
+            if offset + 4 != input.len() || c & 0x03 != 0 {
+                return Err(CryptoError::InvalidBase64 { index: offset + 3 });
+            }
+            continue;
+        }
+
+        let d = base64_value(group[3])
+            .ok_or(CryptoError::InvalidBase64 { index: offset + 3 })?;
+        decoded.push((c << 6) | d);
+    }
+
+    Ok(decoded)
+}
+
+fn base64_value(byte: u8) -> Option<u8> {
+    match byte {
+        b'A'..=b'Z' => Some(byte - b'A'),
+        b'a'..=b'z' => Some(byte - b'a' + 26),
+        b'0'..=b'9' => Some(byte - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
 }
 
 fn digest_to_hex(digest: impl AsRef<[u8]>) -> String {
@@ -708,6 +814,56 @@ mod tests {
         assert!(matches!(
             percent_decode("ok%2x").unwrap_err(),
             CryptoError::InvalidPercentEncoding { index: 2 }
+        ));
+    }
+
+    #[test]
+    fn base64_matches_rfc4648_test_vectors() {
+        let vectors = [
+            (b"" as &[u8], ""),
+            (b"f", "Zg=="),
+            (b"fo", "Zm8="),
+            (b"foo", "Zm9v"),
+            (b"foob", "Zm9vYg=="),
+            (b"fooba", "Zm9vYmE="),
+            (b"foobar", "Zm9vYmFy"),
+        ];
+        for (plain, encoded) in vectors {
+            assert_eq!(base64_encode(plain), encoded);
+            assert_eq!(base64_decode(encoded).unwrap(), plain);
+        }
+    }
+
+    #[test]
+    fn base64_round_trips_arbitrary_binary_bytes() {
+        let bytes = [0x00, 0xff, 0x80, 0x7f, 0x01, 0x02, 0x03, 0xfe];
+        assert_eq!(base64_decode(&base64_encode(&bytes)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn base64_rejects_incomplete_groups_and_invalid_characters() {
+        assert!(matches!(
+            base64_decode("Zg="),
+            Err(CryptoError::InvalidBase64 { index: 3 })
+        ));
+        assert!(matches!(
+            base64_decode("Zm9v$"),
+            Err(CryptoError::InvalidBase64 { index: 5 })
+        ));
+        assert!(matches!(
+            base64_decode("Zm9v\n"),
+            Err(CryptoError::InvalidBase64 { index: 5 })
+        ));
+    }
+
+    #[test]
+    fn base64_rejects_malformed_and_noncanonical_padding() {
+        for invalid in ["=m9v", "Z=g=", "Zm=8", "Zm9=", "Zg=A", "Zg==AAAA", "Zh==", "Zm9="] {
+            assert!(base64_decode(invalid).is_err(), "accepted {invalid:?}");
+        }
+        assert!(matches!(
+            base64_decode("Zm9="),
+            Err(CryptoError::InvalidBase64 { index: 3 })
         ));
     }
 
