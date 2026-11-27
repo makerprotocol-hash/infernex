@@ -9,7 +9,8 @@ use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 use std::collections::BTreeSet;
 
-mod crypto;\nmod scope;
+mod crypto;
+mod scope;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
