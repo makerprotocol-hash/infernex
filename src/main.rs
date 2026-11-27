@@ -155,8 +155,8 @@ fn roadmap_command(args: &[String]) -> ExitCode {
             println!("\nDELIVERY STAGES");
             println!("  [IN PROGRESS] M0  Reliable core and contribution workflow");
             println!("  [IN PROGRESS] M1  Modular native engine architecture");
-            println!("  [PLANNED]     M2  Native network diagnostics (DNS, TLS, HTTP, protocols)");
-            println!("  [PLANNED]     M3  Crypto and file-integrity toolkit");
+            println!("  [IN PROGRESS] M2  Native network diagnostics (interfaces and initial Linux route inventory; DNS/TLS/HTTP remain planned)");
+            println!("  [IN PROGRESS] M3  Crypto and file-integrity toolkit (hashing and explicit manifests implemented)");
             println!("  [PLANNED]     M4  Vulnerability assessment and findings");
             println!("  [PLANNED]     M5  Web and API security assessment");
             println!("  [PLANNED]     M6  Host and endpoint security");
@@ -166,7 +166,7 @@ fn roadmap_command(args: &[String]) -> ExitCode {
             println!("  [PLANNED]     M10 Research labs, fuzzing and safe validation");
             println!("  [PLANNED]     M11 Stable all-in-one release");
             println!("\nCURRENT FOCUS");
-            println!("  1. Add cross-platform route and default-gateway inventory.");
+            println!("  1. Complete NET-02B: add the Windows native route-table adapter and validate Linux/Windows behavior.");
             println!("  2. Add bounded DNS record queries and reverse-DNS consistency checks.");
             println!("  3. Add native TLS certificate and protocol inspection.");
             println!("\nRun 'nex roadmap show' for the complete roadmap and task queue.");
@@ -190,7 +190,7 @@ fn help() {
     println!("  doctor                       Check basic environment");
     println!("  roadmap [show|next]           View the active INFERNEX build roadmap");
     println!("  config show|path             Inspect INFERNEX configuration");
-    println!("  net interfaces                List local interface addresses (read-only)");
+    println!("  net interfaces                List local interface addresses (read-only)\n  net routes                    List local routes (Linux read-only; Windows planned)");
     println!("  net resolve <hostname>        Resolve a hostname using system DNS");
     println!("  net cidr <network/prefix>      Inspect an IPv4/IPv6 network range");
     println!("  net inspect <ip>               Classify an IPv4/IPv6 address");
@@ -288,9 +288,37 @@ fn net_interfaces_command() -> ExitCode {
     }
 }
 
+
+fn net_routes_command() -> ExitCode {
+    match net::list_routes() {
+        Ok(routes) if routes.is_empty() => {
+            println!("The operating system reported no active routes.");
+            ExitCode::SUCCESS
+        }
+        Ok(routes) => {
+            println!("INFERNEX local route inventory (read-only)");
+            println!("{:<5} {:<43} {:<22} {:<10} {:<10} {}", "FAMILY", "DESTINATION", "NEXT HOP", "METRIC", "DEFAULT", "INTERFACE");
+            for route in routes {
+                let family = if route.destination.is_ipv4() { "IPv4" } else { "IPv6" };
+                let destination = format!("{}/{}", route.destination, route.prefix_len);
+                let next_hop = route.next_hop.map(|ip| ip.to_string()).unwrap_or_else(|| "on-link".to_string());
+                println!("{:<5} {:<43} {:<22} {:<10} {:<10} {}",
+                    family, destination, next_hop, route.metric,
+                    if route.default_route { "yes" } else { "no" }, route.interface);
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("Could not enumerate local routes: {error}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn net_command(args: &[String]) -> ExitCode {
     match args {
         [action] if action == "interfaces" => net_interfaces_command(),
+        [action] if action == "routes" => net_routes_command(),
         [action, hostname] if action == "resolve" => {
             match net::resolve_hostname(hostname) {
                 Ok(addresses) if addresses.is_empty() => {
@@ -315,7 +343,7 @@ fn net_command(args: &[String]) -> ExitCode {
         [action, target, start, end] if action == "scan" => net_scan_command(target, start, end),
         [action, target, port] if action == "service" => net_service_command(target, port),
         [action, target, port] if action == "udp" => net_udp_command(target, port),
-        _ => { eprintln!("Usage: nex net interfaces | nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port> | nex net udp <ip> <port>"); ExitCode::from(2) }
+        _ => { eprintln!("Usage: nex net interfaces | nex net routes | nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port> | nex net udp <ip> <port>"); ExitCode::from(2) }
     }
 }
 

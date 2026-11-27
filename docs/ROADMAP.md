@@ -32,6 +32,8 @@ The following are present in the current project baseline; consult the command r
 
 **Important:** The existing network commands are foundational diagnostics, not a full network scanner, packet engine, vulnerability scanner, or exploitation framework.
 
+Status key: `[x]` implemented and validated; `[~]` in progress or platform-limited; `[ ]` planned.
+
 ## 3. Engine roadmap
 
 ### A. Networking and protocol engine
@@ -45,7 +47,7 @@ The following are present in the current project baseline; consult the command r
 - [x] Single-endpoint UDP diagnostic.
 - [x] Extract networking operations into `src/net.rs` (DNS, TCP connect, UDP exchange, and bounded service identification).
 - [x] Local IPv4/IPv6 interface address inventory via cross-platform OS APIs.
-- [ ] Route and default-gateway inventory, implemented with reviewed cross-platform APIs.
+- [~] Route and default-gateway inventory: Linux IPv4/IPv6 procfs implementation in progress; Windows native API adapter remains planned.
 - [ ] DNS record queries (A, AAAA, CNAME, MX, TXT, NS, SOA) with timeouts and clear resolver behavior.
 - [ ] Reverse DNS and forward/reverse consistency checks.
 - [ ] IPv4/IPv6 subnet calculations and safe host-range planning.

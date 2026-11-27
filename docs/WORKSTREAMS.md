@@ -45,11 +45,11 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-01A — extract pure networking primitives
 
-**Status:** Implemented on main in commits `7025925` and `4f30748`.
+**Status:** Complete as part of NET-01; pure networking primitives and their tests live in `src/net.rs`.
 
 - Added `src/net.rs` for TCP port/range validation, banner classification, and IP range classification.
 - Moved the associated unit tests into the networking module.
-- CLI behavior and active network operations remain in `src/main.rs`; this is the first incremental extraction, not completion of NET-01.
+- Remaining command orchestration was completed in NET-01B.
 
 ### NET-01B — extract network command operations
 
@@ -107,7 +107,7 @@ Give the agent one task card from this file. Include these operating rules in it
 
 ### NET-02B — route and default-gateway inventory
 
-**Status:** Design proposal merged; implementation has not started. See `docs/NET-02B-ROUTE-INVENTORY.md`.
+**Status:** In progress — shared route model and Linux IPv4/IPv6 procfs parsing plus `nex net routes` are implemented on the feature branch. Windows native API adapter and cross-platform completion remain pending. See `docs/NET-02B-ROUTE-INVENTORY.md`.
 
 - Implement read-only IPv4/IPv6 route enumeration for Windows and Linux using reviewed native APIs.
 - Preserve multiple default routes, next hops, interface identifiers and metrics.

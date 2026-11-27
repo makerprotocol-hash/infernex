@@ -65,7 +65,15 @@ List local IPv4 and IPv6 interface addresses without sending network traffic:
 nex net interfaces
 ```
 
-This read-only inventory uses operating-system interface APIs and reports interface name, address, prefix length, netmask, optional broadcast address, and loopback/link-local classification. It does not change interface state or enumerate remote hosts. Route and default-gateway inventory is a separate planned capability.
+This read-only inventory uses operating-system interface APIs and reports interface name, address, prefix length, netmask, optional broadcast address, and loopback/link-local classification. It does not change interface state or enumerate remote hosts.
+
+Inspect the local routing table on Linux without sending packets or changing routes:
+
+```sh
+nex net routes
+```
+
+The initial implementation reads Linux kernel procfs snapshots and reports IPv4/IPv6 destination prefixes, next hops (or on-link), metrics, default-route status, and interface names. Windows route inventory is not implemented yet; the command returns an explicit unsupported-platform error there. Missing or malformed procfs data is reported as an error.
 
 
 Resolve a hostname using the system DNS resolver:
