@@ -254,6 +254,12 @@ fn parse_linux_ipv6_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
         let destination_raw = parse_hex(fields[0], "destination")?;
         let prefix = u8::from_str_radix(fields[1], 16)
             .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid prefix at line {}", line_number + 1)))?;
+        let _source_raw = parse_hex(fields[2], "source prefix")?;
+        let source_prefix = u8::from_str_radix(fields[3], 16)
+            .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid source prefix at line {}", line_number + 1)))?;
+        if source_prefix > 128 {
+            return Err(Error::new(ErrorKind::InvalidData, format!("IPv6 source prefix out of range at line {}", line_number + 1)));
+        }
         let next_hop_raw = parse_hex(fields[4], "next hop")?;
         let metric = u32::from_str_radix(fields[5], 16)
             .map_err(|_| Error::new(ErrorKind::InvalidData, format!("invalid metric at line {}", line_number + 1)))?;
@@ -263,7 +269,8 @@ fn parse_linux_ipv6_routes(input: &str) -> std::io::Result<Vec<RouteEntry>> {
             return Err(Error::new(ErrorKind::InvalidData, format!("IPv6 prefix out of range at line {}", line_number + 1)));
         }
         if flags & 0x1 == 0 { continue; }
-        let destination = IpAddr::V6(std::net::Ipv6Addr::from(destination_raw));
+        let destination_mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
+        let destination = IpAddr::V6(std::net::Ipv6Addr::from(destination_raw & destination_mask));
         let next_hop_address = std::net::Ipv6Addr::from(next_hop_raw);
         routes.push(RouteEntry {
             destination,
