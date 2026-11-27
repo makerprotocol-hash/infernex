@@ -269,6 +269,13 @@ pub fn parse_entry(value: &str) -> Result<ScopeEntry, ScopeError> {
             },
             _ => return Err(ScopeError::InvalidEntry(value.to_owned())),
         };
+        // A host-length CIDR is the same authorization as an exact IP.
+        // Store it as Ip so duplicate detection is semantic, not just textual.
+        if (matches!(network.address, IpAddr::V4(_)) && prefix == 32)
+            || (matches!(network.address, IpAddr::V6(_)) && prefix == 128)
+        {
+            return Ok(ScopeEntry::Ip(network.address));
+        }
         return Ok(ScopeEntry::Network(network));
     }
     if let Ok(ip) = IpAddr::from_str(input) { return Ok(ScopeEntry::Ip(ip)); }
@@ -446,6 +453,8 @@ mod tests {
         assert!(parse_entry("2001:db8:::1").is_err());
         assert_eq!(parse_entry("192.0.2.99/24").unwrap().to_string(), "192.0.2.0/24");
         assert_eq!(parse_entry("2001:db8:1::abcd/32").unwrap().to_string(), "2001:db8::/32");
+        assert_eq!(parse_entry("192.0.2.7/32").unwrap().to_string(), "192.0.2.7");
+        assert_eq!(parse_entry("2001:db8::7/128").unwrap().to_string(), "2001:db8::7");
         for bad in ["192.0.2.1/33", "2001:db8::1/129", "192.0.2.1/-1", "192.0.2.1/24/2"] {
             assert!(parse_entry(bad).is_err(), "accepted {bad}");
         }
@@ -492,6 +501,8 @@ mod tests {
         assert!(matches!(store.add("lab.example"), Err(ScopeError::DuplicateEntry(_))));
         store.add("192.0.2.12/24").unwrap();
         assert!(matches!(store.add("192.0.2.0/24"), Err(ScopeError::DuplicateEntry(_))));
+        store.add("198.51.100.7/32").unwrap();
+        assert!(matches!(store.add("198.51.100.7"), Err(ScopeError::DuplicateEntry(_))));
         let entries = store.list().unwrap();
         assert_eq!(entries.len(), 2);
         assert_eq!(ScopeManager::with_path(&path).list().unwrap(), entries);
