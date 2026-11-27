@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn percent_decode_does_not_convert_plus_to_space() {
-        assert_eq!(percent_decode("a+b%2Bc").unwrap(), b"a+b+c");
+        assert_eq!(percent_decode("a+b%2Bc").unwrap(), b"a+b+c".to_vec());
     }
 
     #[test]
