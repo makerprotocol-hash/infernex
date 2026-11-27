@@ -152,7 +152,7 @@ fn banner() {
 
 fn roadmap_command(args: &[String]) -> ExitCode {
     match args {
-        _ if args.is_empty() || args == ["next"] => {
+        _ if args.is_empty() || matches!(args, [action] if action == "next") => {
             println!("INFERNEX — ACTIVE BUILD ROADMAP");
             println!("Vision: native-first networking, cryptography, assessment and research engines.");
             println!("\nDELIVERY STAGES");
