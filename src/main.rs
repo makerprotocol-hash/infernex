@@ -338,6 +338,7 @@ fn net_udp_command(target_text: &str, port_text: &str) -> ExitCode {
     const PROBE: &[u8] = b"INFERNEX-UDP-DIAGNOSTIC";
     println!("INFERNEX native UDP diagnostic");
     println!("Target: {destination}");
+    println!("Sent one {}-byte diagnostic datagram; waiting up to 2 seconds.", PROBE.len());
     match net::udp_exchange(destination, PROBE, Duration::from_secs(2), 512) {
         Ok(response) => {
             println!("RESPONSE: received {} bytes from the selected UDP endpoint.", response.len());
