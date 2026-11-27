@@ -65,3 +65,7 @@ Keep each PR focused on one task card. Open against `main`; do not merge it your
 ## Responsible use
 
 INFERNEX is for systems and networks you own or are explicitly authorized to assess. Never include credentials, private keys, tokens, personal data or real target information in issues, commits or test fixtures.
+
+## Licensing contributions
+
+By intentionally submitting a contribution for inclusion in INFERNEX, you agree that the contribution is offered under the repository's dual license, `MIT OR Apache-2.0`, unless you clearly state otherwise at the time of submission. You retain copyright in your contribution. Do not submit code, documentation, or other material unless you have the right to license it under these terms. Brand assets and trademarks are not covered by the software license.
