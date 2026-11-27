@@ -228,7 +228,8 @@ fn net_command(args: &[String]) -> ExitCode {
         [action, address] if action == "inspect" => inspect_ip_command(address),
         [action, host, port] if action == "port" => net_port_command(host, port),
         [action, target, start, end] if action == "scan" => net_scan_command(target, start, end),
-        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port>"); ExitCode::from(2) }
+        [action, target, port] if action == "service" => net_service_command(target, port),
+        _ => { eprintln!("Usage: nex net resolve <hostname> | nex net cidr <network/prefix> | nex net inspect <ip> | nex net port <host> <port> | nex net scan <ip> <start-port> <end-port> | nex net service <ip> <port>"); ExitCode::from(2) }
     }
 }
 
@@ -281,6 +282,85 @@ fn net_scan_command(target_text: &str, start_text: &str, end_text: &str) -> Exit
 }
 
 // Checks one explicitly supplied TCP port; this is a connectivity diagnostic, not a scanner.
+
+const SERVICE_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_BANNER_BYTES: usize = 512;
+
+fn classify_service_banner(port: u16, banner: &[u8]) -> &'static str {
+    let text = String::from_utf8_lossy(banner).trim_start().to_ascii_uppercase();
+    if text.starts_with("SSH-") { "SSH" }
+    else if text.starts_with("HTTP/") || text.starts_with("HTTP ") { "HTTP" }
+    else if text.starts_with("+OK") { "POP3" }
+    else if text.starts_with("* OK") { "IMAP" }
+    else if text.starts_with("+PONG") || text.starts_with("-NOAUTH") || text.starts_with("-ERR") {
+        "Redis-compatible RESP"
+    }
+    else if text.starts_with("220") && (port == 21 || text.contains("FTP")) { "FTP" }
+    else if text.starts_with("220") && (port == 25 || port == 465 || port == 587 || text.contains("SMTP") || text.contains("ESMTP")) { "SMTP" }
+    else if text.starts_with("220") { "Unclassified 220 greeting" }
+    else { "Unknown / no recognizable banner" }
+}
+
+fn net_service_command(target_text: &str, port_text: &str) -> ExitCode {
+    let Ok(target) = target_text.parse::<std::net::IpAddr>() else {
+        eprintln!("Service identification requires one literal IPv4 or IPv6 address.");
+        return ExitCode::from(2);
+    };
+    let Some(port) = parse_tcp_port(port_text) else {
+        eprintln!("Port must be an integer between 1 and 65535.");
+        return ExitCode::from(2);
+    };
+    if !require_authorized_target(&target.to_string()) { return ExitCode::from(3); }
+
+    let address = std::net::SocketAddr::new(target, port);
+    println!("INFERNEX native service identification");
+    println!("Target: {address}");
+    let mut stream = match TcpStream::connect_timeout(&address, SERVICE_TIMEOUT) {
+        Ok(stream) => stream,
+        Err(error) => {
+            eprintln!("Could not connect to {address}: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    let _ = stream.set_read_timeout(Some(SERVICE_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(SERVICE_TIMEOUT));
+
+    // Send a minimal, non-destructive HTTP HEAD request only on conventional
+    // cleartext HTTP ports. Other protocols are identified from their greeting.
+    if matches!(port, 80 | 8000 | 8008 | 8080 | 8081 | 8888) {
+        let request = format!("HEAD / HTTP/1.0\\r\\nHost: {target}\\r\\nConnection: close\\r\\n\\r\\n");
+        if let Err(error) = stream.write_all(request.as_bytes()) {
+            eprintln!("Connected, but could not send HTTP identification request: {error}");
+            return ExitCode::from(1);
+        }
+    }
+
+    let mut banner = vec![0u8; MAX_BANNER_BYTES];
+    let count = match stream.read(&mut banner) {
+        Ok(count) => count,
+        Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.kind() == io::ErrorKind::TimedOut => 0,
+        Err(error) => {
+            eprintln!("Connected, but could not read a service greeting: {error}");
+            return ExitCode::from(1);
+        }
+    };
+    banner.truncate(count);
+    let service = classify_service_banner(port, &banner);
+    println!("Identified protocol: {service}");
+    if banner.is_empty() {
+        println!("No readable application banner was received; this result is inconclusive.");
+    } else {
+        let printable: String = banner.iter().take(160).map(|byte| {
+            if byte.is_ascii_graphic() || *byte == b' ' { *byte as char }
+            else if *byte == b'\\r' || *byte == b'\\n' { ' ' }
+            else { '.' }
+        }).collect();
+        println!("Banner sample: {printable}");
+    }
+    println!("Identification is based on observed protocol data, not port number alone; banners can be absent or misleading.");
+    ExitCode::SUCCESS
+}
+
 fn net_port_command(host: &str, port_text: &str) -> ExitCode {
     if !require_authorized_target(host) { return ExitCode::from(3); }
     let Some(port) = parse_tcp_port(port_text) else {
@@ -411,7 +491,7 @@ fn hash_command(args: &[String]) -> ExitCode {
             }
             let result = if algorithm == "sha256" { sha256_file(path) } else { sha512_file(path) };
             match result {
-                Ok(actual) if actual.eq_ignore_ascii_case(expected) => { println!("OK: SHA-256 matches for '{}'.", path); ExitCode::SUCCESS },
+                Ok(actual) if actual.eq_ignore_ascii_case(expected) => { println!("OK: {algorithm} matches for '{}'.", path); ExitCode::SUCCESS },
                 Ok(actual) => { eprintln!("MISMATCH: expected {}, got {}", expected, actual); ExitCode::from(1) },
                 Err(e) => { eprintln!("Cannot hash '{}': {}", path, e); ExitCode::FAILURE }
             }
@@ -781,6 +861,15 @@ fn run_engine(name: &str, args: &[String]) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn service_fingerprinting_uses_banner_not_port_number() {
+        assert_eq!(classify_service_banner(443, b"SSH-2.0-OpenSSH_9.0\\r\\n"), "SSH");
+        assert_eq!(classify_service_banner(22, b"HTTP/1.1 200 OK\\r\\n"), "HTTP");
+        assert_eq!(classify_service_banner(12345, b"+OK POP3 ready\\r\\n"), "POP3");
+        assert_eq!(classify_service_banner(25, b"220 mail.example ESMTP ready\\r\\n"), "SMTP");
+        assert_eq!(classify_service_banner(9999, b"opaque response"), "Unknown / no recognizable banner");
+    }
     #[test] fn scan_range_parser_enforces_bounds_and_limit() {
         assert_eq!(parse_scan_range("1", "1"), Some((1, 1)));
         assert_eq!(parse_scan_range("20", "120"), Some((20, 120)));
