@@ -51,6 +51,15 @@ nex scope remove 192.0.2.10
 
 IPv4/IPv6 addresses match exactly or through a containing CIDR. Hostnames match only their exact normalized name; no wildcard, subdomain or DNS-derived authorization is inferred. The inventory is a local record of your authorization, not proof of legal permission. Malformed or unreadable scope storage causes active operations to be refused. Override its file location with `INFERNEX_SCOPE_FILE`.
 
+Identify a service from its observed application response on one explicitly supplied IP and port:
+
+```sh
+nex net service 192.0.2.10 22
+nex net service 192.0.2.10 80
+```
+
+This makes one bounded TCP connection, reads at most 512 banner bytes, and sends a minimal HTTP HEAD request only on selected conventional cleartext HTTP ports. It recognizes protocol signatures such as SSH, HTTP, SMTP, FTP, POP3 and IMAP. Port numbers alone are not treated as proof of service identity. Missing or encrypted banners may remain unidentified. The target must be in the authorization scope.
+
 ## Native network diagnostics
 
 Resolve a hostname using the system DNS resolver:
