@@ -61,6 +61,8 @@ pub enum CryptoError {
     },
     /// A supplied checksum contains a non-ASCII-hexadecimal byte.
     InvalidHexCharacter { index: usize, byte: u8 },
+    /// Hexadecimal input must contain an even number of characters.
+    InvalidHexLength { actual: usize },
 }
 
 impl fmt::Display for CryptoError {
@@ -81,6 +83,10 @@ impl fmt::Display for CryptoError {
                 f,
                 "invalid hexadecimal character at byte {index}: 0x{byte:02x}"
             ),
+            Self::InvalidHexLength { actual } => write!(
+                f,
+                "invalid hexadecimal length: expected an even number of characters, got {actual}"
+            ),
         }
     }
 }
@@ -89,7 +95,9 @@ impl std::error::Error for CryptoError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io { source, .. } => Some(source),
-            Self::InvalidDigestLength { .. } | Self::InvalidHexCharacter { .. } => None,
+            Self::InvalidDigestLength { .. }
+            | Self::InvalidHexCharacter { .. }
+            | Self::InvalidHexLength { .. } => None,
         }
     }
 }
@@ -131,6 +139,51 @@ pub fn hash_bytes(data: &[u8], algorithm: HashAlgorithm) -> String {
     match algorithm {
         HashAlgorithm::Sha256 => digest_to_hex(Sha256::digest(data)),
         HashAlgorithm::Sha512 => digest_to_hex(Sha512::digest(data)),
+    }
+}
+
+/// Encode arbitrary bytes as lowercase hexadecimal text.
+pub fn encode_hex(data: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(data.len().saturating_mul(2));
+    for byte in data {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
+}
+
+/// Decode hexadecimal text into bytes.
+///
+/// Both uppercase and lowercase ASCII hexadecimal characters are accepted.
+/// Odd-length input and non-hexadecimal characters are rejected.
+pub fn decode_hex(encoded: &str) -> Result<Vec<u8>, CryptoError> {
+    let bytes = encoded.as_bytes();
+    if bytes.len() % 2 != 0 {
+        return Err(CryptoError::InvalidHexLength { actual: bytes.len() });
+    }
+
+    let mut decoded = Vec::with_capacity(bytes.len() / 2);
+    for (pair_index, pair) in bytes.chunks_exact(2).enumerate() {
+        let high = hex_nibble(pair[0]).ok_or(CryptoError::InvalidHexCharacter {
+            index: pair_index * 2,
+            byte: pair[0],
+        })?;
+        let low = hex_nibble(pair[1]).ok_or(CryptoError::InvalidHexCharacter {
+            index: pair_index * 2 + 1,
+            byte: pair[1],
+        })?;
+        decoded.push((high << 4) | low);
+    }
+    Ok(decoded)
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
     }
 }
 
@@ -225,6 +278,41 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.directory);
         }
+    }
+
+    #[test]
+    fn hex_encoding_round_trips_binary_data() {
+        let input = [0x00, 0x01, 0x7f, 0x80, 0xfe, 0xff];
+        let encoded = encode_hex(&input);
+        assert_eq!(encoded, "00017f80feff");
+        assert_eq!(decode_hex(&encoded).unwrap(), input);
+    }
+
+    #[test]
+    fn hex_encoding_handles_empty_input() {
+        assert_eq!(encode_hex(&[]), "");
+        assert_eq!(decode_hex("").unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn hex_decoding_accepts_uppercase() {
+        assert_eq!(decode_hex("00A1b2FF").unwrap(), [0x00, 0xa1, 0xb2, 0xff]);
+    }
+
+    #[test]
+    fn hex_decoding_rejects_odd_length() {
+        assert!(matches!(
+            decode_hex("abc").unwrap_err(),
+            CryptoError::InvalidHexLength { actual: 3 }
+        ));
+    }
+
+    #[test]
+    fn hex_decoding_reports_invalid_character_position() {
+        assert!(matches!(
+            decode_hex("00xz").unwrap_err(),
+            CryptoError::InvalidHexCharacter { index: 2, byte: b'x' }
+        ));
     }
 
     #[test]
