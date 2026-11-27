@@ -2,14 +2,14 @@
 
 ## Current status
 
-INFERNEX is under active development. CI and release-build workflows provide build infrastructure; they do not by themselves mean that a stable, supported release or installer is available.
+INFERNEX is under active development. CI and release-build workflows provide cross-platform build infrastructure; they do not by themselves mean that a stable, supported release or installer is available.
 
 The release workflow is intended to build:
 - Windows x86-64 (MSVC)
 - Linux x86-64 (GNU)
 - Linux ARM64 (GNU)
 
-Artifacts from workflow runs are build outputs, not automatically published, signed end-user releases.
+Artifacts from workflow runs are build outputs, not automatically published, signed end-user releases. For source builds and safe PC testing, follow [the installation and test guide](INSTALL.md).
 
 ## Before public distribution
 

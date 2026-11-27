@@ -76,16 +76,18 @@ The angular red-orange **X** is the official INFERNEX mark. The official PNG emb
 
 The roadmap is part of the product, not just a planning document. Run `nex roadmap` in the terminal for current delivery stages, or `nex roadmap show` for the complete master plan. The active roadmap is also maintained in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Build from source
+## Installation and testing
 
-Install the stable Rust toolchain, then run:
+INFERNEX is currently built from source; a signed installer and stable end-user release are not published yet. Follow the [Windows and Linux installation and test guide](docs/INSTALL.md) for prerequisites, build steps, safe first-run checks, platform limitations and how to report test results.
+
+For a source build:
 
 ```sh
 cargo test --all-targets
 cargo build --release
 ```
 
-Run `cargo fmt --check` after formatting the touched Rust files. The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
+The executable is produced as `target/release/nex.exe` on Windows and `target/release/nex` on Linux.
 
 ## Native commands
 
@@ -123,6 +125,7 @@ We do not claim third-party functionality as our own. Any future bundling or mod
 
 ## Documentation
 
+- [Installation and PC testing guide](docs/INSTALL.md)
 - [Command reference](docs/COMMANDS.md)
 - [Architecture and native module boundaries](docs/ARCHITECTURE.md)
 - [Parallel engineering workstreams and contributor task cards](docs/WORKSTREAMS.md)
