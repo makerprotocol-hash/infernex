@@ -4,9 +4,13 @@ Thanks for helping build INFERNEX.
 
 ## Product direction
 
-INFERNEX is a native-first cybersecurity platform written in Rust. We want to implement our own networking, cryptography, file integrity, diagnostics and defensive security modules in this repository.
+INFERNEX is a native-first cybersecurity platform written in Rust. We are implementing our own networking, cryptography, file integrity, diagnostics and defensive security modules in this repository.
 
 Native features are the product. Third-party programs may be supported as optional compatibility integrations, but wrappers around external tools are not a substitute for native implementations.
+
+## Before coding
+
+Read [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) and choose one task card. The roadmap defines file ownership, exact scope and acceptance criteria so parallel contributors and coding agents do not overwrite one another.
 
 ## Engineering principles
 
@@ -16,19 +20,16 @@ Native features are the product. Third-party programs may be supported as option
 - Use bounded memory, timeouts and resource limits.
 - Preserve Windows and Linux support.
 - Use established cryptographic standards and reviewed crates; never invent cryptographic primitives.
-- Active network features must use explicit targets and respect authorization scope.
+- Active network features must use explicit targets and enforce local authorization scope before opening sockets.
 - Document limitations honestly.
 - Do not claim third-party code or capabilities as INFERNEX-authored.
 - Review licenses and required notices before copying, modifying, bundling or redistributing external software.
 
 ## Parallel ownership
 
-See [docs/WORKSTREAMS.md](docs/WORKSTREAMS.md) before starting work.
-
-Current ownership:
-- Core maintainer: CLI, networking, dependency manifests, integration and releases.
-- Crypto contributor: `src/crypto.rs` and module-local tests.
-- Scope contributor: `src/scope.rs` and module-local tests, when assigned.
+- Core maintainer: `src/main.rs`, `src/net.rs`, dependency manifests, CI, CLI integration and releases.
+- Crypto contributor: `src/crypto.rs` only, on a dedicated branch.
+- Scope module is integrated; changes to `src/scope.rs` require a separately assigned task.
 
 Avoid editing another workstream's files. Coordinate through pull requests and documented module APIs. Do not merge your own feature branch unless explicitly authorized by the repository maintainer.
 
@@ -37,26 +38,29 @@ Avoid editing another workstream's files. Coordinate through pull requests and d
 Install stable Rust, then run:
 
 ```sh
-cargo fmt --check
 cargo test --all-targets
 cargo build --release
 ```
 
-Report exact results. If a command could not be run, say so rather than implying success.
+Format touched Rust files with `cargo fmt` and verify with `cargo fmt --check`. Report exact results. If a command could not be run, say so rather than implying success.
 
 ## Dependencies
 
-Do not add dependencies without review. A proposal should include the exact crate and version, purpose, license, maintenance/security considerations and why the standard library or existing dependencies are insufficient.
+Do not add dependencies without review. A proposal should include the exact crate and version, purpose, license, maintenance/security considerations, MSRV impact and why the standard library or existing dependencies are insufficient.
 
 ## Pull requests
 
 A useful PR includes:
-- User-visible behavior and example commands.
+- The task card being completed.
+- User-visible behavior and example commands, if applicable.
 - Public API and module boundaries.
 - Tests covering normal, boundary and failure cases.
 - Platform compatibility notes.
 - Security implications and known limitations.
 - Dependency/license details where applicable.
+- Exact commands run and their results.
+
+Keep each PR focused on one task card. Open against `main`; do not merge it yourself.
 
 ## Responsible use
 
