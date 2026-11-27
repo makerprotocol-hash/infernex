@@ -1,91 +1,98 @@
 # INFERNEX Parallel Engineering Workstreams
 
-This is a code-ownership agreement for parallel development. The second contributor owns a substantial product feature, not documentation-only work.
+INFERNEX is moving to a **native-first, all-in-one cybersecurity platform**. Its core capabilities must be implemented and maintained in this repository. Third-party integrations may remain optional compatibility adapters, but native commands must not require them.
 
-## Core maintainer (approximately 70%)
+This file defines parallel code ownership to prevent conflicting edits.
+
+## Core maintainer — CLI, networking and platform (approximately 60%)
 
 Owns:
-- `src/main.rs`: CLI dispatcher, REPL, prompts, command integration
-- `Cargo.toml` and dependency decisions
-- Engine manager, engine execution, installation workflow
-- Themes, aliases, global configuration
-- Shared architecture, release workflows, final integration and merges
+- `src/main.rs`: CLI dispatcher, REPL, help, command integration
+- `src/net.rs` (new): native networking, DNS, TCP connect scanning, service identification, network diagnostics
+- `Cargo.toml` and `Cargo.lock`: dependency decisions and integration
+- Engine adapters and eventual removal/reclassification of external-tool-dependent features
+- Themes, aliases, global configuration, release workflows
+- Shared architecture, integration, review and merges
 
-## Second contributor (approximately 30%): Authorized Scope & Asset Manager
+### Networking roadmap
 
-Own and implement a complete, independently testable module in:
+Build original INFERNEX implementations, with clear safe limits and tests:
+1. Native host/IP parsing, DNS resolution and local network information
+2. TCP connect scanner with strict bounded ranges and timeouts
+3. Service identification from observed protocol responses (not just port-number guesses)
+4. Network inventory and structured output
+5. Additional protocol diagnostics, with authorization scope enforced before active network actions
 
-- `src/scope.rs` — all implementation and unit tests for this feature
+Do not claim full Nmap equivalence. Implement and document each protocol/feature ourselves.
 
-Do not edit `src/main.rs`, `Cargo.toml`, `Cargo.lock`, workflows, or files owned by the core maintainer. The maintainer will connect the finished module to the CLI after reviewing its public API.
+## Second contributor — Cryptography and file integrity (approximately 40%)
+
+Own and implement the native cryptography feature in:
+
+- `src/crypto.rs` — all implementation and unit tests for this feature
+
+Do not edit `src/main.rs`, `src/net.rs`, `Cargo.toml`, `Cargo.lock`, workflows, or files owned by the core maintainer. The maintainer will connect the finished module to CLI commands after reviewing its API. If a new cryptographic crate is needed, propose the exact crate, version, license and reason in the PR; do not change Cargo files.
 
 ### Product goal
 
-Build INFERNEX's local **Authorized Scope & Asset Manager**. It helps a user record which IP addresses, CIDR networks, and hostnames they are authorized to assess, inspect the inventory, and check whether a proposed target is inside the recorded scope.
+Build INFERNEX's own **Crypto & File Integrity Toolkit**. This is for legitimate file integrity, encryption, decryption and recovery of data the user owns or is authorized to handle. Do not build password cracking, credential theft, ransomware, stealth, or bypasses for access controls.
 
-This is a real core product feature: validation, persistence, matching, safe failure behavior, and tests—not just a document or mockup.
+### Phase 1 — implement now using existing dependencies
 
-### Required functionality
+Use the existing `sha2` dependency and Rust standard library where possible.
 
-Implement a public Rust API in `src/scope.rs` that supports:
+1. A typed algorithm enum for SHA-256 and SHA-512.
+2. Streaming file hashing (bounded memory; never load entire large files).
+3. Checksum verification with strict hex length/character validation and case-insensitive digest comparison.
+4. Hash byte-slice helpers for unit tests and future internal use.
+5. Useful typed errors for file I/O, unsupported algorithms and invalid expected digests.
+6. Deterministic output/API that the CLI can consume without knowing implementation details.
+7. Tests: known vectors, empty file, large/multi-buffer file, binary data, invalid checksums, wrong checksum, missing/unreadable file where portable.
 
-1. Add a scope entry:
-   - IPv4 address, IPv6 address
-   - IPv4 CIDR and IPv6 CIDR
-   - Exact hostname (case-insensitive; normalize a trailing dot)
-   - Reject URLs, paths, ports, malformed CIDRs, empty values, and unsupported wildcard patterns.
-2. List all entries in a stable, deterministic order.
-3. Remove an existing entry using normalized matching.
-4. Check a candidate target:
-   - IP address matches an exact IP entry or a containing CIDR.
-   - Hostname matches an exact hostname entry only.
-   - A hostname must not be treated as authorized merely because DNS currently resolves it to an allowed IP.
-   - Never infer authorization from a partial string match.
-5. Persist entries locally in a simple, documented, line-based format.
-   - Use a predictable per-user config location, with an environment-variable override such as `INFERNEX_SCOPE_FILE` for tests and advanced users.
-   - Create parent directories when needed.
-   - Handle missing files as an empty scope.
-   - Preserve valid entries and report malformed stored lines clearly; do not silently broaden scope.
-   - Write updates safely (temporary file then rename where practical).
-6. Return useful typed errors/results so the main CLI can display friendly messages.
-7. Include unit tests for IPv4, IPv6, CIDR boundaries, hostname normalization, invalid inputs, duplicate entries, add/remove persistence, missing files, malformed storage, and negative authorization checks.
+### Phase 2 — propose authenticated file encryption/decryption
 
-### Public API expectation
+Design a safe file-encryption format, but do not add dependencies or claim encryption is implemented until the maintainer approves the dependency proposal.
 
-Choose a clean API that the CLI can call without knowing storage details. At minimum expose equivalents of:
-- `add(value: &str) -> Result<...>`
-- `remove(value: &str) -> Result<...>`
-- `list() -> Result<Vec<...>>`
-- `check(target: &str) -> Result<bool, ...>`
+The proposal should use established authenticated encryption (AES-256-GCM or ChaCha20-Poly1305) and a password KDF (Argon2id), with:
+- Random salt and nonce from a cryptographically secure OS RNG
+- Authenticated metadata and versioned file format
+- Strict parameter bounds to prevent malicious KDF resource exhaustion
+- No hard-coded keys, homemade ciphers, or unauthenticated encryption
+- Atomic output writes and no overwrite by default
+- Clear failure behavior: authentication failure must not produce a plaintext output file
+- Tests for round-trip, wrong password, modified ciphertext, truncated files, malformed headers, and resource-bound validation
+- A documented warning that losing the password means the data may be unrecoverable
 
-You may improve the names and types, but document the API in module-level comments. Prefer the Rust standard library; if an additional dependency is genuinely necessary, propose it in the pull request rather than editing Cargo files.
+The feature must encrypt/decrypt user-supplied files only. Do not implement disk-wide encryption, background encryption, destructive deletion, stealth, or automatic file discovery.
 
-### Safety and correctness requirements
+### Public API and CLI proposal
 
-- Scope is a user-maintained authorization record, not proof of legal permission.
-- Default behavior must be deny: unknown, malformed, or unreadable scope data is never considered authorized.
-- No scanning, probing, network connections, DNS lookups, subprocesses, or automatic target discovery in this module.
-- No wildcard domains, implicit subdomain matching, or fuzzy matching.
-- Do not log secrets or overwrite unrelated configuration.
-- Keep it cross-platform (Windows and Linux).
+Expose a clean module API with equivalents of:
+- `hash_file(path, algorithm)`
+- `verify_file(path, algorithm, expected_hex)`
+- Later, after crypto design approval: `encrypt_file(input, output, password)` and `decrypt_file(input, output, password)`
+
+The core maintainer owns CLI integration, for example:
+- `nex crypto hash sha256 <file>`
+- `nex crypto hash sha512 <file>`
+- `nex crypto verify sha256 <file> <digest>`
+- Later: `nex crypto encrypt <input> <output>` and `nex crypto decrypt <input> <output>`
 
 ### Branch and delivery
 
-1. Pull the latest `main`.
-2. Create branch `feature/authorized-scope-manager`.
-3. Implement only `src/scope.rs` plus tests contained in that module.
-4. Run `cargo fmt --check` and `cargo test` locally; report exact results, and clearly say if you could not run them.
-5. Open a pull request against `main`. Do not merge it.
-6. In the PR description, explain the data format, public API, security decisions, test coverage, and any limitations.
+1. Pull latest `main`.
+2. Create branch `feature/native-crypto-toolkit`.
+3. Implement only `src/crypto.rs` and tests inside that module.
+4. Do not edit the CLI or dependency manifests.
+5. Run `cargo fmt --check` and `cargo test`; report exact output and do not claim tests passed if not run.
+6. Open a pull request against `main`; do not merge it.
+7. In the PR explain API, format decisions, cryptographic design, dependency proposals (if any), test coverage and limitations.
 
-### Definition of done
+## Shared rules
 
-The module compiles with the existing project, is independently testable, has robust persistence and strict target matching, and is ready for the core maintainer to wire into commands such as:
-
-- `nex scope add 192.0.2.0/24`
-- `nex scope add lab.example`
-- `nex scope list`
-- `nex scope remove 192.0.2.0/24`
-- `nex scope check 192.0.2.15`
-
-The core maintainer owns those CLI command changes and integration.
+- Native INFERNEX code is the product; third-party engines are optional and must never be silently required by native commands.
+- Keep module boundaries clean; coordinate through public APIs and pull requests.
+- No unreviewed dependency changes.
+- No target scanning beyond explicit user-supplied scope; active networking safeguards are owned by the core maintainer.
+- Cross-platform Windows/Linux behavior is required.
+- Do not claim feature completeness or compatibility with established commercial/open-source suites without evidence.
