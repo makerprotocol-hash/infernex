@@ -1006,11 +1006,11 @@ mod tests {
         let file = TestFile::new(&bytes);
         assert_eq!(
             hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
-            format!("{:x}", Sha256::digest(bytes))
+            encode_hex(&Sha256::digest(bytes))
         );
         assert_eq!(
             hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
-            format!("{:x}", Sha512::digest(bytes))
+            encode_hex(&Sha512::digest(bytes))
         );
     }
 
@@ -1022,11 +1022,11 @@ mod tests {
         let file = TestFile::new(&bytes);
         assert_eq!(
             hash_file(&file.path, HashAlgorithm::Sha256).unwrap(),
-            format!("{:x}", Sha256::digest(&bytes))
+            encode_hex(&Sha256::digest(&bytes))
         );
         assert_eq!(
             hash_file(&file.path, HashAlgorithm::Sha512).unwrap(),
-            format!("{:x}", Sha512::digest(&bytes))
+            encode_hex(&Sha512::digest(&bytes))
         );
     }
 
